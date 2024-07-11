@@ -15,7 +15,7 @@ app.use(cors());
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
-  .then(() => console.log('MongoDB connected'))
+  .then(() => console.log('MongoDB connectedd'))
   .catch(err => console.log(err));
 
 // Models
