@@ -1,0 +1,31 @@
+{
+  "name": "pawpal-network-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "mocha tests/*.spec.js",
+    "lint": "npx eslint src"
+  },
+  "keywords": [],
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.0"
+  },
+  "devDependencies": {
+    "chai": "^5.1.1",
+    "chai-http": "^5.0.0",
+    "eslint": "^9.6.0",
+    "globals": "^15.8.0",
+    "mocha": "^10.6.0"
+  }
+}
