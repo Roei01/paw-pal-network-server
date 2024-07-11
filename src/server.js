@@ -35,7 +35,7 @@ const UserSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 
 // Routes
-app.post('/register', async (req, res) => {
+app.post('/register',async (req, res) => {
   const { username, firstName, lastName, email, password, dateOfBirth } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = new User({
@@ -55,7 +55,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
-app.post('/login', async (req, res) => {
+app.post('/login',async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username });
 
@@ -77,7 +77,7 @@ app.post('/login', async (req, res) => {
   res.json({ token });
 });
 
-app.get('/profile', authenticateToken, async (req, res) => {
+app.get('/profile',authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     res.json(user);
