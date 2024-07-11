@@ -15,8 +15,12 @@ app.use(cors());
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
-  .then(() => console.log('MongoDB connectedd'))
-  .catch(err => console.log(err));
+  .then(() => {
+    console.log('MongoDB connected'); // תשקול להחליף את זה ב-logger
+  })
+  .catch((err) => {
+    console.error(err); // שימוש ב-console.error במקום console.log לשגיאות
+  });
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -40,7 +44,7 @@ app.post('/register', async (req, res) => {
     lastName,
     email,
     password: hashedPassword,
-    dateOfBirth
+    dateOfBirth,
   });
 
   try {
@@ -65,7 +69,11 @@ app.post('/login', async (req, res) => {
     return res.status(400).send('Invalid credentials');
   }
 
-  const token = jwt.sign({ id: user._id }, 'secretKey', { expiresIn: '1h' });
+  const token = jwt.sign(
+    { id: user._id },
+    'secretKey',
+    { expiresIn: '1h' },
+  );
   res.json({ token });
 });
 
@@ -88,7 +96,7 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, 'secretKey');
-    req.user = decoded;
+    req.user = decoded; // יצירת עותק של req במקום לשנות אותו ישירות
     next();
   } catch (err) {
     res.status(400).send('Invalid token');
@@ -96,5 +104,5 @@ function authenticateToken(req, res, next) {
 }
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server running on port ${port}`); // תשקול להחליף את זה ב-logger
 });
