@@ -1,4 +1,3 @@
-// server.js
 import express from 'express';
 import mongoose from 'mongoose';
 import bodyParser from 'body-parser';
@@ -16,10 +15,10 @@ app.use(cors());
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
   .then(() => {
-    console.log('MongoDB connected'); // תשקול להחליף את זה ב-logger
+    console.log('MongoDB connected')
   })
   .catch((err) => {
-    console.error(err); // שימוש ב-console.error במקום console.log לשגיאות
+    console.error(err);
   });
 
 // Models
@@ -35,7 +34,7 @@ const UserSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 
 // Routes
-app.post('/register',async (req, res) => {
+app.post('/register', async (req, res) => {
   const { username, firstName, lastName, email, password, dateOfBirth } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = new User({
@@ -51,11 +50,16 @@ app.post('/register',async (req, res) => {
     await newUser.save();
     res.status(201).send('User registered');
   } catch (err) {
-    res.status(500).send('Error registering user');
+    if (err.code === 11000) {
+      // Handle duplicate key error (username or email already exists)
+      res.status(400).send('Username or email already exists');
+    } else {
+      res.status(500).send('Error registering user');
+    }
   }
 });
 
-app.post('/login',async (req, res) => {
+app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username });
 
@@ -76,7 +80,7 @@ app.post('/login',async (req, res) => {
   res.json({ token });
 });
 
-app.get('/profile',authenticateToken, async (req, res) => {
+app.get('/profile', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     res.json(user);
@@ -103,5 +107,7 @@ function authenticateToken(req, res, next) {
 }
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`); // תשקול להחליף את זה ב-logger
+  console.log(`Server running on port ${port}`); 
 });
+
+export default app; // הוספת שורת הייצוא
