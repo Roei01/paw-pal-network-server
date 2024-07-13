@@ -34,7 +34,7 @@ describe('User API', () => {
           lastName: 'User',
           email: 'testuser@example.com',
           password: 'password123',
-          dateOfBirth: '1990-01-01'
+          dateOfBirth: '1990-01-02'
         })
         .expect(201)
         .end((err, res) => {
