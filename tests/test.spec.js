@@ -3,20 +3,52 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../src/server.js';  // ייבוא השרת שלך
 
-before(async () => {
+let server; // הגדרת המשתנה server
+
+before(async function() {
+  // סגירת שרת אם כבר פועל
+  if (server && server.listening) {
+    await new Promise((resolve, reject) => {
+      server.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  // חיבור למסד הנתונים
   if (mongoose.connection.readyState === 0) {
     await mongoose.connect('mongodb://localhost:27017/pawpal-network-test', { 
       useNewUrlParser: true, 
       useUnifiedTopology: true 
     });
   }
+
+  server = app.listen(0, () => { // שימוש בפורט דינאמי
+    console.log('Test server running');
+  });
 });
 
-after(async () => {
+after(async function() {
+  // סגירת מסד הנתונים
   if (mongoose.connection.readyState !== 0) {
     await mongoose.connection.db.dropDatabase();
     await mongoose.connection.close();
   }
+
+  // סגירת שרת
+  if (server && server.listening) {
+    await new Promise((resolve, reject) => {
+      server.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    console.log('Test server closed');
+  }
+  
+  // סגירת תהליך בצורה ידנית
+  process.exit(0);
 });
 
 describe('User API', () => {
