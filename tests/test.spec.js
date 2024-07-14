@@ -149,7 +149,7 @@ describe('User API', () => {
             .post('/login')
             .send({
               username: 'testuser',
-              password: 'password122'
+              password: 'password123'
             })
             .expect(200)
             .end((err, res) => {
