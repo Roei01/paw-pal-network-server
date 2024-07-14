@@ -39,6 +39,7 @@ jobs:
         run: npm run test
 
       - name: Run lint
+        if: success()
         run: npm run lint
 
       - name: deploy app
