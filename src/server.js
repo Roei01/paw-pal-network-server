@@ -15,7 +15,7 @@ app.use(cors());
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
   .then(() => {
-    console.log('MongoDB connected')
+    console.log('MongoDB connected');
   })
   .catch((err) => {
     console.error(err);
@@ -107,7 +107,7 @@ function authenticateToken(req, res, next) {
 }
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`); 
+  console.log(`Server running on port ${port}`);
 });
 
 export default app; // הוספת שורת הייצוא
