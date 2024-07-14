@@ -6,16 +6,6 @@ import app from '../src/server.js';  // ייבוא השרת שלך
 let server; // הגדרת המשתנה server
 
 before(async function() {
-  // סגירת שרת אם כבר פועל
-  if (server && server.listening) {
-    await new Promise((resolve, reject) => {
-      server.close((err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  }
-
   // חיבור למסד הנתונים
   if (mongoose.connection.readyState === 0) {
     await mongoose.connect('mongodb://localhost:27017/pawpal-network-test', { 
@@ -24,7 +14,8 @@ before(async function() {
     });
   }
 
-  server = app.listen(0, () => { // שימוש בפורט דינאמי
+  // הפעלת השרת על פורט דינאמי
+  server = app.listen(0, () => { 
     console.log('Test server running');
   });
 });
@@ -46,7 +37,7 @@ after(async function() {
     });
     console.log('Test server closed');
   }
-  
+
   // סגירת תהליך בצורה ידנית
   process.exit(0);
 });
@@ -54,6 +45,21 @@ after(async function() {
 describe('User API', () => {
   beforeEach(async () => {
     await mongoose.connection.db.dropDatabase();
+  });
+
+  afterEach(async function() {
+    // במידה ויש כשלון בבדיקה, עצירת התהליך עם קוד כשלון
+    if (this.currentTest.state === 'failed') {
+      if (server && server.listening) {
+        await new Promise((resolve, reject) => {
+          server.close((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+      process.exit(1); // יציאה עם קוד כשלון
+    }
   });
 
   describe('POST /register', () => {
@@ -143,7 +149,7 @@ describe('User API', () => {
             .post('/login')
             .send({
               username: 'testuser',
-              password: 'password12'
+              password: 'password122'
             })
             .expect(200)
             .end((err, res) => {
