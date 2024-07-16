@@ -8,9 +8,15 @@ import jwt from 'jsonwebtoken';
 const app = express();
 const port = process.env.PORT || 3000;
 
+const corsOptions = {
+  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
+  optionsSuccessStatus: 200
+};
+
 // Middleware
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors(corsOptions));
+
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
