@@ -54,7 +54,7 @@ app.post('/register', async (req, res) => {
 
   try {
     await newUser.save();
-    res.status(201).send('User registered');
+    res.status(201).send({ message: 'User registered' });
   } catch (err) {
     if (err.code === 11000) {
       // Handle duplicate key error (username or email already exists)
