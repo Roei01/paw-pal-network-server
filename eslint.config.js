@@ -28,7 +28,6 @@ export default [
       "no-duplicate-imports": "error", // איסור על יבוא כפול של אותו מודול
       "prefer-const": "error", // דרישה לשימוש ב-const במקום let אם המשתנה לא משתנה
       "prefer-arrow-callback": "error", // דרישה לשימוש בפונקציות חץ במקום פונקציות רגילות כקולבקים
-      "arrow-parens": ["error", "always"], // דרישה לשימוש בסוגריים מסביב לפרמטרים של פונקציות חץ
       "no-var": "error", // איסור על שימוש ב-var והעדפת let או const
       "no-trailing-spaces": "error", // איסור על רווחים מיותרים בסוף שורה
       "key-spacing": ["error", { beforeColon: false }], // דרישה לרווח אחרי נקודתיים במפתחות אובייקט
