@@ -9,13 +9,15 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 
+// CORS options
 const corsOptions = {
-  origin: 'https://paw-pal-network-client.onrender.com'
+  origin: 'https://paw-pal-network-client.onrender.com',
+  optionsSuccessStatus: 200,
 };
 
 // Middleware
 app.use(bodyParser.json());
-app.use((corsOptions));
+app.use(cors(corsOptions));
 
 
 // MongoDB connection
