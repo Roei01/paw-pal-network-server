@@ -1,50 +1,59 @@
-name: Build, Test, Lint and Deploy
+name: Node.js Package
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  build-test-lint:
+  build:
     runs-on: ubuntu-latest
 
     services:
-      mongodb:
+      mongo:
         image: mongo:latest
         ports:
           - 27017:27017
         options: >-
-          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'" 
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd="mongo --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 16
 
-      - name: Wait for MongoDB to be ready
-        run: sleep 20
-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Wait for MongoDB to be ready
+        run: until mongo --host localhost --eval "print(\"waited for connection\")"; do sleep 1; done
 
       - name: Run tests
-        run: npm run test
+        run: npm test
 
-      - name: Run lint
-        if: success()
-        run: npm run lint
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
 
-        
-      - name: deploy app
-        run: curl https://api.render.com/deploy/srv-cq9qgsaju9rs73b8vag0?key=55IOr6u3ZWc
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
 
-        
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to production
+        run: npm run deploy
+        env:
+          NODE_AUTH_TOKEN: ${https://api.render.com/deploy/srv-cq9qgsaju9rs73b8vag0?key=55IOr6u3ZWc}
