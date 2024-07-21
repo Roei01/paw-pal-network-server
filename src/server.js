@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 
 
 const corsOptions = {
-  origin: 'https://paw-pal-network-client.onrender.com', // Adjust this to match your Angular app's URL
+  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200,
 };
 
