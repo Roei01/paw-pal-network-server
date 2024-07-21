@@ -1,59 +1,50 @@
-name: Node.js Package
+name: Build, Test, Lint and Deploy
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  build-test-lint:
     runs-on: ubuntu-latest
 
     services:
-      mongo:
+      mongodb:
         image: mongo:latest
         ports:
           - 27017:27017
         options: >-
-          --health-cmd="mongo --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'" 
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
         with:
           node-version: 16
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Wait for MongoDB to be ready
-        run: until mongo --host localhost --eval "print(\"waited for connection\")"; do sleep 1; done
-
-      - name: Run tests
-        run: npm test
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
+        run: sleep 20
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Deploy to production
-        run: npm run deploy
-        env:
-          NODE_AUTH_TOKEN: ${https://api.render.com/deploy/srv-cq9qgsaju9rs73b8vag0?key=55IOr6u3ZWc}
+      - name: Run tests
+        run: npm run test
+
+      - name: Run lint
+        if: success()
+        run: npm run lint
+
+        
+      - name: deploy app
+        run: curl https://api.render.com/deploy/srv-cq9qgsaju9rs73b8vag0?key=55IOr6u3ZWc
+
+
+        
