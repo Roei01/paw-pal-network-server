@@ -8,9 +8,14 @@ import jwt from 'jsonwebtoken';
 const app = express();
 const port = process.env.PORT || 3000;
 
+const corsOptions = {
+  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
+  optionsSuccessStatus: 200,
+};
+
 // Middleware
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors(corsOptions));
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
@@ -34,7 +39,7 @@ const UserSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 
 // Routes
-app.post('/register', async (req, res) => {
+app.post('/api/register', async (req, res) => {
   const { username, firstName, lastName, email, password, dateOfBirth } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = new User({
@@ -48,7 +53,7 @@ app.post('/register', async (req, res) => {
 
   try {
     await newUser.save();
-    res.status(201).send('User registered');
+    res.status(201).send({ message: 'User registered' });
   } catch (err) {
     if (err.code === 11000) {
       // Handle duplicate key error (username or email already exists)
@@ -59,7 +64,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
-app.post('/login', async (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username });
 
@@ -80,7 +85,7 @@ app.post('/login', async (req, res) => {
   res.json({ token });
 });
 
-app.get('/profile', authenticateToken, async (req, res) => {
+app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     res.json(user);
@@ -91,7 +96,7 @@ app.get('/profile', authenticateToken, async (req, res) => {
 
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
-  const token = req.header('Authorization').replace('Bearer ', '');
+  const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
     return res.status(401).send('Access denied');
@@ -99,7 +104,7 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, 'secretKey');
-    req.user = decoded; // יצירת עותק של req במקום לשנות אותו ישירות
+    req.user = decoded;
     next();
   } catch (err) {
     res.status(400).send('Invalid token');
@@ -110,4 +115,4 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 
-export default app; // הוספת שורת הייצוא
+export default app;
