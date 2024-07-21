@@ -107,6 +107,10 @@ app.get('/about', (req, res) => {
   res.json(aboutContent);
 });
 
+app.get('/getUserDetails', (req, res) => {
+  res.json(aboutContent);
+});
+
 
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
