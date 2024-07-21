@@ -9,7 +9,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const corsOptions = {
-  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
+  origin: 'https://paw-pal-network-client.onrender.com', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200
 };
 
@@ -19,12 +19,12 @@ app.use(cors(corsOptions));
 
 
 // MongoDB connection
-const uri = "mongodb+srv://royinagar2:0ZbTAJ4T5YUkeduu@cluster0.cpfyu6i.mongodb.net/Cluster0?retryWrites=true&w=majority";
+const uri = "mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network";
 mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connected to MongoDB Atlas'))
   .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
 
-  
+
 // Models
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
