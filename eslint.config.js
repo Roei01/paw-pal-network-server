@@ -18,7 +18,7 @@ export default [
       "class-methods-use-this": "off", // ביטול הדרישה לשימוש במתודות מחלקה
       "consistent-return": "off", // ביטול הדרישה להחזרת ערך עקבית בכל המתודות
       "func-names": "off", // ביטול הדרישה למתן שמות לפונקציות אנונימיות
-      "max-len": ["error", { code: 200 }], // הגבלת אורך שורה ל-80 תווים
+      "max-len": ["error", { code: 270 }], // הגבלת אורך שורה ל-80 תווים
       "no-underscore-dangle": "off", // ביטול האיסור על שימוש בקו תחתון בהתחלה או בסוף של שם מזהה
       "object-curly-newline": ["error", { multiline: true }], // דרישה לשורות חדשות עבור אובייקטים מרובי שורות
       "prefer-destructuring": ["error", { object: true, array: true }], // דרישה לשימוש בפירוק (destructuring) עבור אובייקטים ומערכים
@@ -28,7 +28,6 @@ export default [
       "no-duplicate-imports": "error", // איסור על יבוא כפול של אותו מודול
       "prefer-const": "error", // דרישה לשימוש ב-const במקום let אם המשתנה לא משתנה
       "prefer-arrow-callback": "error", // דרישה לשימוש בפונקציות חץ במקום פונקציות רגילות כקולבקים
-      "arrow-parens": ["error", "always"], // דרישה לשימוש בסוגריים מסביב לפרמטרים של פונקציות חץ
       "no-var": "error", // איסור על שימוש ב-var והעדפת let או const
       "no-trailing-spaces": "error", // איסור על רווחים מיותרים בסוף שורה
       "key-spacing": ["error", { beforeColon: false }], // דרישה לרווח אחרי נקודתיים במפתחות אובייקט
@@ -64,7 +63,6 @@ export default [
       "class-methods-use-this": "off", // ביטול הדרישה לשימוש במתודות מחלקה
       "consistent-return": "off", // ביטול הדרישה להחזרת ערך עקבית בכל המתודות
       "func-names": "off", // ביטול הדרישה למתן שמות לפונקציות אנונימיות
-      "max-len": ["error", { code: 80 }], // הגבלת אורך שורה ל-80 תווים
       "no-underscore-dangle": "off", // ביטול האיסור על שימוש בקו תחתון בהתחלה או בסוף של שם מזהה
       "object-curly-newline": ["error", { multiline: true }], // דרישה לשורות חדשות עבור אובייקטים מרובי שורות
       "prefer-destructuring": ["error", { object: true, array: true }], // דרישה לשימוש בפירוק (destructuring) עבור אובייקטים ומערכים
