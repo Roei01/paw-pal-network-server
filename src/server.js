@@ -93,6 +93,14 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/about', (req, res) => {
+  const submitters = ['Roei', 'Tamir', 'Aviram', 'Nir', 'Elad', 'Neria', 'Idan'];
+  res.json({ submitters });
+});
+
+
+
+
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
   const token = req.header('Authorization').replace('Bearer ', '');
