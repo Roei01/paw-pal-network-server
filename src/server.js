@@ -38,9 +38,6 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', UserSchema);
 
-// Serve static files from the dist directory
-app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client')));
-
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client', 'serve.html'));
