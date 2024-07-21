@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 const app = express();
 const port = process.env.PORT || 3000;
 
+
 const corsOptions = {
   origin: 'https://paw-pal-network-client.onrender.com', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200,
@@ -120,6 +121,11 @@ function authenticateToken(req, res, next) {
     res.status(400).send('Invalid token');
   }
 }
+
+// All other GET requests not handled before will return the Angular app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
+});
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
