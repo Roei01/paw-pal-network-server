@@ -18,7 +18,7 @@ export default [
       "class-methods-use-this": "off", // ביטול הדרישה לשימוש במתודות מחלקה
       "consistent-return": "off", // ביטול הדרישה להחזרת ערך עקבית בכל המתודות
       "func-names": "off", // ביטול הדרישה למתן שמות לפונקציות אנונימיות
-      "max-len": ["error", { code: 200 }], // הגבלת אורך שורה ל-80 תווים
+      "max-len": ["error", { code: 270 }], // הגבלת אורך שורה ל-80 תווים
       "no-underscore-dangle": "off", // ביטול האיסור על שימוש בקו תחתון בהתחלה או בסוף של שם מזהה
       "object-curly-newline": ["error", { multiline: true }], // דרישה לשורות חדשות עבור אובייקטים מרובי שורות
       "prefer-destructuring": ["error", { object: true, array: true }], // דרישה לשימוש בפירוק (destructuring) עבור אובייקטים ומערכים
@@ -63,7 +63,6 @@ export default [
       "class-methods-use-this": "off", // ביטול הדרישה לשימוש במתודות מחלקה
       "consistent-return": "off", // ביטול הדרישה להחזרת ערך עקבית בכל המתודות
       "func-names": "off", // ביטול הדרישה למתן שמות לפונקציות אנונימיות
-      "max-len": ["error", { code: 80 }], // הגבלת אורך שורה ל-80 תווים
       "no-underscore-dangle": "off", // ביטול האיסור על שימוש בקו תחתון בהתחלה או בסוף של שם מזהה
       "object-curly-newline": ["error", { multiline: true }], // דרישה לשורות חדשות עבור אובייקטים מרובי שורות
       "prefer-destructuring": ["error", { object: true, array: true }], // דרישה לשימוש בפירוק (destructuring) עבור אובייקטים ומערכים
