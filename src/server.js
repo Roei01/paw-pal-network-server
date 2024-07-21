@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
 
 // CORS options
@@ -124,9 +124,9 @@ function authenticateToken(req, res, next) {
 }
 
 // All other GET requests not handled before will return the Angular app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
-});
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
+// });
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
