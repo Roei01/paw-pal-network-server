@@ -84,6 +84,50 @@ app.post('/login', async (req, res) => {
   res.json({ token });
 });
 
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+  const user = await User.findOne({ username });
+
+  if (!user) {
+    return res.status(404).send('User not found');
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    return res.status(400).send('Invalid credentials');
+  }
+
+  const token = jwt.sign(
+    { id: user._id },
+    'secretKey',
+    { expiresIn: '1h' },
+  );
+  res.json({ token });
+});
+
+
+app.post('/', async (req, res) => {/// לבדיקה
+  const { username, password } = req.body;
+  const user = await User.findOne({ username });
+
+  if (!user) {
+    return res.status(404).send('User not found');
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    return res.status(400).send('Invalid credentials');
+  }
+
+  const token = jwt.sign(
+    { id: user._id },
+    'secretKey',
+    { expiresIn: '1h' },
+  );
+  res.json({ token });
+});
+
 app.get('/profile', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
