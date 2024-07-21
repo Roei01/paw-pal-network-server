@@ -21,7 +21,7 @@ app.use(cors(corsOptions));
 // MongoDB connection
 const uri = 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
 mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlas'))
+  .then(() => console.log('Connected to MongoDB Atlass'))
   .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
 
 
