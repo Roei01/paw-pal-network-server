@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 
 const corsOptions = {
   origin: 'https://paw-pal-network-client.onrender.com', // Adjust this to match your Angular app's URL
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
 };
 
 // Middleware
@@ -19,9 +19,9 @@ app.use(cors(corsOptions));
 
 
 // MongoDB connection
-const uri = "mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network";
+const uri = 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
 mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlas'))
+  .then(() => console.log('Connected to MongoDB Atlass'))
   .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
 
 
@@ -92,6 +92,17 @@ app.get('/profile', authenticateToken, async (req, res) => {
     res.status(500).send('Error fetching profile');
   }
 });
+
+
+app.get('/about', (req, res) => {
+  const aboutContent = {
+    description: 'We are a group of dedicated software engineering students working on an exciting project to connect pet lovers through a social network. Our members include Roei, Tamir, Aviram, Nir, Elad, Neria, and Idan. Stay tuned for more updates!',
+    members: ['Roei', 'Tamir', 'Aviram', 'Nir', 'Elad', 'Neria', 'Idan'],
+    project: 'Our project, PawPal Network, is a social network designed to help pet lovers connect, share experiences, and celebrate the joys of pet ownership.',
+  };
+  res.json(aboutContent);
+});
+
 
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
