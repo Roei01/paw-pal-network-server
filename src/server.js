@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 const app = express();
 const port = process.env.PORT || 3000;
 
+
 const corsOptions = {
   origin: 'https://paw-pal-network-client.onrender.com', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200,
@@ -36,6 +37,14 @@ const UserSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', UserSchema);
+
+// Serve static files from the dist directory
+app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client')));
+
+// All other GET requests not handled before will return the Angular app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client', 'serve.html'));
+});
 
 // Routes
 app.post('/register', async (req, res) => {
