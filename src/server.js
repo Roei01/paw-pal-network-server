@@ -38,11 +38,6 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', UserSchema);
 
-// All other GET requests not handled before will return the Angular app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client', 'serve.html'));
-});
-
 // Routes
 app.post('/register', async (req, res) => {
   const { username, firstName, lastName, email, password, dateOfBirth } = req.body;
@@ -126,6 +121,11 @@ function authenticateToken(req, res, next) {
     res.status(400).send('Invalid token');
   }
 }
+
+// All other GET requests not handled before will return the Angular app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'login.component.html'));
+});
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
