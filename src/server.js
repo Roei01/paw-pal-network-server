@@ -10,13 +10,12 @@ const port = process.env.PORT || 3000;
 
 
 const corsOptions = {
-  origin: 'https://paw-pal-network-client.onrender.com', // Adjust this to match your Angular app's URL
-  optionsSuccessStatus: 200,
+  origin: 'https://paw-pal-network-client.onrender.com'
 };
 
 // Middleware
 app.use(bodyParser.json());
-app.use(cors(corsOptions));
+app.use((corsOptions));
 
 
 // MongoDB connection
