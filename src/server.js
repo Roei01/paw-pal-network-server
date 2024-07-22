@@ -15,11 +15,6 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-const corsOptions = {
-  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
-  optionsSuccessStatus: 200
-};
-
 // Middleware
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
