@@ -134,7 +134,7 @@ app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client/browser
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
-  res.status(418).send('418: I\'m a teapot');
+  res.status(418).send('418: I\'m a teapotS');
 });
 
 export default app; // הוספת שורת הייצוא
