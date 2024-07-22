@@ -125,11 +125,11 @@ function authenticateToken(req, res, next) {
 }
 
 // הגדר את תיקיית הבילד שלך כסטטית
-app.use(express.static(path.join(__dirname, '../client/build'))); // עדכון הנתיב ללקוח
+app.use(express.static(path.join(__dirname, '../dist/paw-pal-network-client')));
 
 // נתיב כללי שתופס את כל הבקשות ומכוון אותן לקובץ index.html
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  res.sendFile(path.join(__dirname, '../dist/paw-pal-network-client', 'index.html'));
 });
 
 app.listen(port, () => {
