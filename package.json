@@ -7,7 +7,6 @@
     "dev": "nodemon src/server.js",
     "test": "mocha tests/*.spec.js",
     "lint": "npx eslint src"
-    
   },
   "keywords": [],
   "type": "module",
@@ -19,6 +18,7 @@
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "http-proxy-middleware": "^3.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.0"
   },

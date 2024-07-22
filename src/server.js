@@ -5,13 +5,14 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'path';
-
-
-
+import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// דינאמית על מנת לקבל את הנתיב הנכון __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // CORS options
 const corsOptions = {
@@ -23,13 +24,11 @@ const corsOptions = {
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
 
-
 // MongoDB connection
-const uri = 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
+const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
 mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlass'))
+  .then(() => console.log('Connected to MongoDB Atlas'))
   .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
-
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -99,7 +98,6 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.get('/about', (req, res) => {
   const aboutContent = {
     description: 'We are a group of dedicated software engineering students working on an exciting project to connect pet lovers through a social network. Our members include Roei, Tamir, Aviram, Nir, Elad, Neria, and Idan. Stay tuned for more updates!',
@@ -108,7 +106,6 @@ app.get('/about', (req, res) => {
   };
   res.json(aboutContent);
 });
-
 
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
@@ -128,17 +125,15 @@ function authenticateToken(req, res, next) {
 }
 
 // הגדר את תיקיית הבילד שלך כסטטית
-app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client/browser')));
+app.use(express.static(path.join(__dirname, '../client/build'))); // עדכון הנתיב ללקוח
 
 // נתיב כללי שתופס את כל הבקשות ומכוון אותן לקובץ index.html
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
+  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server started on port ${port}`);
 });
-
 
 export default app; // הוספת שורת הייצוא
