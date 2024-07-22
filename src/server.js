@@ -124,11 +124,10 @@ function authenticateToken(req, res, next) {
 // Serve static files from the Angular app
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client/browser')));
+app.use(express.static(path.join(__dirname, '..', 'dist', 'paw-pal-network-client', 'browser')));
 
-// All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'dist', 'paw-pal-network-client', 'browser', 'index.html'));
 });
 
 app.listen(port, () => {
