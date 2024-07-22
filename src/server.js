@@ -4,6 +4,10 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import path from 'path';
+
+
+
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -123,14 +127,17 @@ function authenticateToken(req, res, next) {
   }
 }
 
-// All other GET requests not handled before will return the Angular app
+// הגדר את תיקיית הבילד שלך כסטטית
+app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client/browser')));
+
+// נתיב כללי שתופס את כל הבקשות ומכוון אותן לקובץ index.html
 app.get('*', (req, res) => {
-  res.status(418).send('418: I\'m a teapotS');
+  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
 });
 
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
 });
 
 
