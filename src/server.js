@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,7 +25,7 @@ app.use(cors(corsOptions));
 
 // MongoDB connection
 const uri = 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(uri)
   .then(() => console.log('Connected to MongoDB Atlas'))
   .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
 
@@ -121,6 +121,9 @@ function authenticateToken(req, res, next) {
     res.status(400).send('Invalid token');
   }
 }
+
+// Serve static files from the Angular app
+app.use(express.static(path.join(__dirname, '..', 'dist', 'paw-pal-network-client', 'browser')));
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
