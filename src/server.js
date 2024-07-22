@@ -137,4 +137,10 @@ app.get('*', (req, res) => {
   res.status(418).send('418: I\'m a teapotS');
 });
 
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
+
+
 export default app; // הוספת שורת הייצוא
