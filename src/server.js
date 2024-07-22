@@ -4,6 +4,10 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -122,14 +126,14 @@ function authenticateToken(req, res, next) {
     res.status(400).send('Invalid token');
   }
 }
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+app.use(express.static(path.join(__dirname, '..', 'dist', 'paw-pal-network-client', 'browser')));
 
 // All other GET requests not handled before will return the Angular app
-// app.get('*', (req, res) => {
-//   res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
-// });
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dist', 'paw-pal-network-client', 'browser', 'index.html'));
 });
+
 
 export default app; // הוספת שורת הייצוא
