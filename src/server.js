@@ -4,10 +4,6 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -126,11 +122,6 @@ function authenticateToken(req, res, next) {
     res.status(400).send('Invalid token');
   }
 }
-// Serve static files from the Angular app
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client/browser')));
-
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
