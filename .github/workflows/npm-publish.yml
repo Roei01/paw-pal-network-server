@@ -42,6 +42,7 @@ jobs:
         if: success()
         run: npm run lint
 
+        
       - name: deploy app
         run: curl https://api.render.com/deploy/srv-cq9qgsaju9rs73b8vag0?key=55IOr6u3ZWc
 

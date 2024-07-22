@@ -6,7 +6,14 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
+
+
+// CORS options
+const corsOptions = {
+  origin: 'https://paw-pal-network-client.onrender.com',
+  optionsSuccessStatus: 200,
+};
 
 const corsOptions = {
   origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
@@ -19,13 +26,11 @@ app.use(cors(corsOptions));
 
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/pawpal-network')
-  .then(() => {
-    console.log('MongoDB connected');
-  })
-  .catch((err) => {
-    console.error(err);
-  });
+const uri = 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
+mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB Atlass'))
+  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
+
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -54,7 +59,7 @@ app.post('/register', async (req, res) => {
 
   try {
     await newUser.save();
-    res.status(201).send('User registered');
+    res.status(201).send({ message: 'User registered' });
   } catch (err) {
     if (err.code === 11000) {
       // Handle duplicate key error (username or email already exists)
@@ -95,6 +100,17 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+
+app.get('/about', (req, res) => {
+  const aboutContent = {
+    description: 'We are a group of dedicated software engineering students working on an exciting project to connect pet lovers through a social network. Our members include Roei, Tamir, Aviram, Nir, Elad, Neria, and Idan. Stay tuned for more updates!',
+    members: ['Roei', 'Tamir', 'Aviram', 'Nir', 'Elad', 'Neria', 'Idan'],
+    project: 'Our project, PawPal Network, is a social network designed to help pet lovers connect, share experiences, and celebrate the joys of pet ownership.',
+  };
+  res.json(aboutContent);
+});
+
+
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
   const token = req.header('Authorization').replace('Bearer ', '');
@@ -111,6 +127,11 @@ function authenticateToken(req, res, next) {
     res.status(400).send('Invalid token');
   }
 }
+
+// All other GET requests not handled before will return the Angular app
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
+// });
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
