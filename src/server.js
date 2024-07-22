@@ -5,6 +5,8 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -55,6 +57,7 @@ app.post('/register', async (req, res) => {
     res.status(201).send({ message: 'User registered' });
   } catch (err) {
     if (err.code === 11000) {
+      // Handle duplicate key error (username or email already exists)
       res.status(400).send('Username or email already exists');
     } else {
       res.status(500).send('Error registering user');
@@ -75,7 +78,11 @@ app.post('/login', async (req, res) => {
     return res.status(400).send('Invalid credentials');
   }
 
-  const token = jwt.sign({ id: user._id }, 'secretKey', { expiresIn: '1h' });
+  const token = jwt.sign(
+    { id: user._id },
+    'secretKey',
+    { expiresIn: '1h' },
+  );
   res.json({ token });
 });
 
@@ -115,6 +122,8 @@ function authenticateToken(req, res, next) {
 }
 
 // Serve static files from the Angular app
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client/browser')));
 
 // All other GET requests not handled before will return the Angular app
