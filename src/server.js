@@ -127,13 +127,14 @@ function authenticateToken(req, res, next) {
   }
 }
 // Serve static files from the Angular app
-const __filename = fileURLToPath(import.meta.url);
+/*const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 app.use(express.static(path.join(__dirname, 'dist/paw-pal-network-client/browser')));
+*/
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser'));
+  res.status(418).send('418: I\'m a teapot');
 });
 
 export default app; // הוספת שורת הייצוא
