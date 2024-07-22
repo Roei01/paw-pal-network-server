@@ -8,12 +8,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-
 const app = express();
 const port = process.env.PORT || 3000;
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-// CORS options
 const corsOptions = {
   origin: 'https://paw-pal-network-client.onrender.com',
   optionsSuccessStatus: 200,
@@ -23,13 +23,11 @@ const corsOptions = {
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
 
-
 // MongoDB connection
 const uri = 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
 mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlass'))
+  .then(() => console.log('Connected to MongoDB Atlas'))
   .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
-
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -61,7 +59,6 @@ app.post('/register', async (req, res) => {
     res.status(201).send({ message: 'User registered' });
   } catch (err) {
     if (err.code === 11000) {
-      // Handle duplicate key error (username or email already exists)
       res.status(400).send('Username or email already exists');
     } else {
       res.status(500).send('Error registering user');
@@ -99,7 +96,6 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.get('/about', (req, res) => {
   const aboutContent = {
     description: 'We are a group of dedicated software engineering students working on an exciting project to connect pet lovers through a social network. Our members include Roei, Tamir, Aviram, Nir, Elad, Neria, and Idan. Stay tuned for more updates!',
@@ -108,7 +104,6 @@ app.get('/about', (req, res) => {
   };
   res.json(aboutContent);
 });
-
 
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
@@ -120,14 +115,14 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, 'secretKey');
-    req.user = decoded; // יצירת עותק של req במקום לשנות אותו ישירות
+    req.user = decoded;
     next();
   } catch (err) {
     res.status(400).send('Invalid token');
   }
 }
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+
+// Serve static files from the Angular app
 app.use(express.static(path.join(__dirname, '..', 'dist', 'paw-pal-network-client', 'browser')));
 
 // All other GET requests not handled before will return the Angular app
@@ -135,5 +130,8 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'paw-pal-network-client', 'browser', 'index.html'));
 });
 
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
 
-export default app; // הוספת שורת הייצוא
+export default app;
