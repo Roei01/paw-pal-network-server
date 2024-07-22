@@ -124,7 +124,7 @@ function authenticateToken(req, res, next) {
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'dist', 'paw-pal-network-client', 'browser', 'index.html'));
+  res.status(418).send('418: I\'m a teapot');
 });
 
 app.listen(port, () => {
