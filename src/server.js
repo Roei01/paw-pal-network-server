@@ -117,29 +117,20 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, 'secretKey');
-    req.user = decoded; // יצירת עותק של req במקום לשנות אותו ישירות
+    req.user = decoded;
     next();
   } catch (err) {
     res.status(400).send('Invalid token');
   }
 }
 
-// Serve static files from the Angular app
-const staticPath = path.join(__dirname, 'dist', 'paw-pal-network-client', 'browser');
-console.log(`Static path: ${staticPath}`);
-app.use(express.static(staticPath));
-
-// All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
-  const indexPath = path.join(staticPath, 'index.html');
-  console.log(`Serving file: ${indexPath}`);
-  res.sendFile(indexPath, (err) => {
-    if (err) {
+  console.log('THIS PAGE NO HAVE ROUTING');
+  if (err) {
       console.error('Error sending file:', err);
       res.status(500).send(err);
     }
-  });
-});
+})
 
 app.listen(port, () => {
   console.log(`Server started on port ${port}`);
