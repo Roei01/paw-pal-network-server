@@ -117,21 +117,22 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, 'secretKey');
-    req.user = decoded;
+    req.user = decoded; // יצירת עותק של req במקום לשנות אותו ישירות
     next();
   } catch (err) {
     res.status(400).send('Invalid token');
   }
 }
 
-// All other GET requests not handled before will return the Angular app
-const staticPath = path.join(__dirname, '..', 'paw-pal-network-client', 'dist', 'paw-pal-network-client', 'browser');
-console.log(staticPath);
+// Serve static files from the Angular app
+const staticPath = path.join(__dirname, 'dist', 'paw-pal-network-client', 'browser');
+console.log(`Static path: ${staticPath}`);
 app.use(express.static(staticPath));
 
+// All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
   const indexPath = path.join(staticPath, 'index.html');
-  console.log('Serving file:', indexPath);
+  console.log(`Serving file: ${indexPath}`);
   res.sendFile(indexPath, (err) => {
     if (err) {
       console.error('Error sending file:', err);
@@ -139,9 +140,6 @@ app.get('*', (req, res) => {
     }
   });
 });
-
-
-
 
 app.listen(port, () => {
   console.log(`Server started on port ${port}`);
