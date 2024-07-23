@@ -125,11 +125,12 @@ function authenticateToken(req, res, next) {
 }
 
 // All other GET requests not handled before will return the Angular app
-console.log(path.join(__dirname, '..','paw-pal-network-client', 'dist', 'paw-pal-network-client', 'browser'));
-app.use(express.static(path.join(__dirname, '..','paw-pal-network-client', 'dist', 'paw-pal-network-client', 'browser')));
+const staticPath = path.join(__dirname, '..', 'paw-pal-network-client', 'dist', 'paw-pal-network-client', 'browser');
+console.log(staticPath);
+app.use(express.static(staticPath));
 
 app.get('*', (req, res) => {
-  const indexPath = path.join(__dirname, '..','paw-pal-network-client', 'dist', 'paw-pal-network-client', 'browser', 'index.html');
+  const indexPath = path.join(staticPath, 'index.html');
   console.log('Serving file:', indexPath);
   res.sendFile(indexPath, (err) => {
     if (err) {
@@ -138,6 +139,8 @@ app.get('*', (req, res) => {
     }
   });
 });
+
+
 
 
 app.listen(port, () => {
