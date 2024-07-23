@@ -125,7 +125,7 @@ function authenticateToken(req, res, next) {
 }
 
 // All other GET requests not handled before will return the Angular app
-console.log(path.join(__dirname, '..', 'dist','paw-pal-network-client', 'paw-pal-network-client', 'browser'));
+console.log(path.join(__dirname, '..','paw-pal-network-client', 'dist', 'paw-pal-network-client', 'browser'));
 app.use(express.static(path.join(__dirname, '..','paw-pal-network-client', 'dist', 'paw-pal-network-client', 'browser')));
 
 app.get('*', (req, res) => {
