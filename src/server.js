@@ -4,15 +4,9 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
-
-// דינאמית על מנת לקבל את הנתיב הנכון __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // CORS options
 const corsOptions = {
