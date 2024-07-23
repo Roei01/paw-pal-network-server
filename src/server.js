@@ -124,12 +124,19 @@ function authenticateToken(req, res, next) {
   }
 }
 
-// הגדר את תיקיית הבילד שלך כסטטית
-app.use(express.static(path.join(__dirname, '../dist/paw-pal-network-client')));
+// All other GET requests not handled before will return the Angular app
+console.log(path.join(__dirname, 'dist', 'paw-pal-network-client', 'browser'));
+app.use(express.static(path.join(__dirname, 'dist', 'paw-pal-network-client', 'browser')));
 
-// נתיב כללי שתופס את כל הבקשות ומכוון אותן לקובץ index.html
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/paw-pal-network-client', 'index.html'));
+  const indexPath = path.join(__dirname, 'dist', 'paw-pal-network-client', 'browser', 'index.html');
+  console.log('Serving file:', indexPath);
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('Error sending file:', err);
+      res.status(500).send(err);
+    }
+  });
 });
 
 app.listen(port, () => {
