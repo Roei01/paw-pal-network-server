@@ -6,13 +6,20 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import Post from '../models/post.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// דינאמית על מנת לקבל את הנתיב הנכון __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // CORS options
 const corsOptions = {
-  origin: 'http://localhost:4200',
+  origin: 'https://paw-pal-network-client.onrender.com',
   optionsSuccessStatus: 200,
 };
 
@@ -21,11 +28,9 @@ app.use(bodyParser.json());
 app.use(cors(corsOptions));
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/pawpal-network', { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect('mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network', { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('Error connecting to MongoDB:', err));
-
-// Models
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -38,15 +43,7 @@ const UserSchema = new mongoose.Schema({
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 });
 
-const postSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  content: { type: String, required: false },
-  imageUrl: { type: String }, // URL of the image
-  createdAt: { type: Date, default: Date.now },
-});
-
 const User = mongoose.model('User', UserSchema);
-const Post = mongoose.model('Post', PostSchema);
 
 // Multer setup for file uploads
 const storage = multer.diskStorage({
@@ -99,7 +96,7 @@ app.post('/login', async (req, res) => {
   }
 
   const token = jwt.sign(
-    { id: user._id },
+    { id: user._id, username: user.username },
     'secretKey',
     { expiresIn: '1h' },
   );
@@ -108,11 +105,12 @@ app.post('/login', async (req, res) => {
 
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
-  const image = req.file ? req.file.filename : null;
+  const imageUrl = req.file ? req.file.filename : null;
   const newPost = new Post({
     userId: req.user.id,
+    username: req.user.username,
     description,
-    image,
+    imageUrl,
   });
 
   try {
@@ -125,7 +123,7 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
 
 app.get('/posts', authenticateToken, async (req, res) => {
   try {
-    const posts = await Post.find({}).populate('userId', 'username');
+    const posts = await Post.find({ userId: req.user.id }).populate('userId', 'username');
     res.json(posts);
   } catch (err) {
     res.status(500).send('Error fetching posts');
@@ -140,7 +138,6 @@ app.get('/profile', authenticateToken, async (req, res) => {
     res.status(500).send('Error fetching profile');
   }
 });
-
 
 // הוספת חבר
 app.post('/friends/add', authenticateToken, async (req, res) => {
@@ -213,9 +210,20 @@ function authenticateToken(req, res, next) {
 }
 
 // All other GET requests not handled before will return the Angular app
+console.log(path.join(__dirname, 'dist', 'paw-pal-network-client', 'browser'));
+app.use(express.static(path.join(__dirname, 'dist', 'paw-pal-network-client', 'browser')));
+
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
+  const indexPath = path.join(__dirname, 'dist', 'paw-pal-network-client', 'browser', 'index.html');
+  console.log('Serving file:', indexPath);
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('Error sending file:', err);
+      res.status(500).send(err);
+    }
+  });
 });
+
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

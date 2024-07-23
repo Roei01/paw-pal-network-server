@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - main
+      - Roei
   pull_request:
     branches:
       - main
-
+      - Roei
 jobs:
   build-test-lint:
     runs-on: ubuntu-latest
