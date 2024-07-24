@@ -4,10 +4,11 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import path from 'path';
 
 const app = express();
 const port = process.env.PORT || 3000;
-
 
 const corsOptions = {
   origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
@@ -18,7 +19,6 @@ const corsOptions = {
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
 
-
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
   .then(() => {
@@ -27,7 +27,6 @@ mongoose.connect('mongodb://localhost:27017/pawpal-network')
   .catch((err) => {
     console.error(err);
   });
-
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -39,7 +38,43 @@ const UserSchema = new mongoose.Schema({
   dateOfBirth: { type: Date, required: true },
 });
 
+const PostSchema = new mongoose.Schema({
+  description: { type: String, required: true },
+  image: { type: String, required: true },
+  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model('User', UserSchema);
+const Post = mongoose.model('Post', PostSchema);
+
+// Multer configuration for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
+
+// Middleware to authenticate token
+function authenticateToken(req, res, next) {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+
+  if (!token) {
+    return res.status(401).send('Access denied');
+  }
+
+  try {
+    const decoded = jwt.verify(token, 'secretKey');
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(400).send('Invalid token');
+  }
+}
 
 // Routes
 app.post('/register', async (req, res) => {
@@ -59,7 +94,6 @@ app.post('/register', async (req, res) => {
     res.status(201).send({ message: 'User registered' });
   } catch (err) {
     if (err.code === 11000) {
-      // Handle duplicate key error (username or email already exists)
       res.status(400).send('Username or email already exists');
     } else {
       res.status(500).send('Error registering user');
@@ -97,7 +131,6 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.get('/about', (req, res) => {
   const aboutContent = {
     description: 'We are a group of dedicated software engineering students working on an exciting project to connect pet lovers through a social network. Our members include Roei, Tamir, Aviram, Nir, Elad, Neria, and Idan. Stay tuned for more updates!',
@@ -107,23 +140,38 @@ app.get('/about', (req, res) => {
   res.json(aboutContent);
 });
 
+// Post routes
+app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
+  const { description } = req.body;
+  const image = req.file ? req.file.path : null;
+  const author = req.user.id;
 
-// Middleware to authenticate token
-function authenticateToken(req, res, next) {
-  const token = req.header('Authorization').replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).send('Access denied');
+  if (!description || !author) {
+    return res.status(400).send('Missing required fields');
   }
+
+  const newPost = new Post({
+    description,
+    image,
+    author
+  });
 
   try {
-    const decoded = jwt.verify(token, 'secretKey');
-    req.user = decoded; // יצירת עותק של req במקום לשנות אותו ישירות
-    next();
+    await newPost.save();
+    res.status(201).send(newPost);
   } catch (err) {
-    res.status(400).send('Invalid token');
+    res.status(500).send('Error creating post');
   }
-}
+});
+
+app.get('/posts', async (req, res) => {
+  try {
+    const posts = await Post.find().populate('author', 'username');
+    res.json(posts);
+  } catch (err) {
+    res.status(500).send('Error fetching posts');
+  }
+});
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
@@ -134,4 +182,4 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 
-export default app; // הוספת שורת הייצוא
+export default app;
