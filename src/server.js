@@ -17,15 +17,11 @@ const corsOptions = {
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
 
-
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/pawpal-network')
-  .then(() => {
-    console.log('MongoDB connected');
-  })
-  .catch((err) => {
-    console.error(err);
-  });
+const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
+mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB Atlas'))
+  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -95,6 +91,15 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/about', (req, res) => {
+  const aboutContent = {
+    description: 'We are a group of dedicated software engineering students working on an exciting project to connect pet lovers through a social network. Our members include Roei, Tamir, Aviram, Nir, Elad, Neria, and Idan. Stay tuned for more updates!',
+    members: ['Roei', 'Tamir', 'Aviram', 'Nir', 'Elad', 'Neria', 'Idan'],
+    project: 'Our project, PawPal Network, is a social network designed to help pet lovers connect, share experiences, and celebrate the joys of pet ownership.',
+  };
+  res.json(aboutContent);
+});
+
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
   const token = req.header('Authorization').replace('Bearer ', '');
@@ -105,15 +110,23 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, 'secretKey');
-    req.user = decoded; // יצירת עותק של req במקום לשנות אותו ישירות
+    req.user = decoded;
     next();
   } catch (err) {
     res.status(400).send('Invalid token');
   }
 }
 
+app.get('*', (req, res) => {
+  console.log('THIS PAGE NO HAVE ROUTING');
+  if (err) {
+    console.error('Error sending file:', err);
+    res.status(500).send(err);
+  }
+})
+
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server started on port ${port}`);
 });
 
 export default app; // הוספת שורת הייצוא
