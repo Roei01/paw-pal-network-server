@@ -166,7 +166,7 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
 
 app.get('/posts', async (req, res) => {
   try {
-    const posts = await Post.find().populate('author', 'username');
+    const posts = await Post.find().populate('');
     res.json(posts);
   } catch (err) {
     res.status(500).send('Error fetching posts');
