@@ -140,6 +140,10 @@ app.get('/about', (req, res) => {
   res.json(aboutContent);
 });
 
+app.get('/getUserDetails', (req, res) => {
+  res.json(aboutContent);
+});
+
 // Post routes
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
