@@ -28,6 +28,7 @@ const transporter = nodemailer.createTransport({
 // Middleware
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
+app.use('/uploads', express.static('uploads'));
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
@@ -154,35 +155,52 @@ app.get('/profile/:username', authenticateToken, async (req, res) => {
 // Post routes
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
-  const image = req.file ? req.file.path : null;
-  const author = req.user.id;
-
-  if (!description || !author) {
-    return res.status(400).send('Missing required fields');
-  }
-
-  const newPost = new Post({
-    description,
-    image,
-    author
-  });
+  const image = req.file ? `/uploads/${req.file.filename}` : null;
 
   try {
-    await newPost.save();
-    res.status(201).send(newPost);
+    const post = new Post({
+      description,
+      image,
+      author: req.user.id
+    });
+
+    await post.save();
+    res.status(201).send(post);
   } catch (err) {
     res.status(500).send('Error creating post');
   }
 });
 
+
 app.get('/posts', async (req, res) => {
   try {
     const posts = await Post.find().populate('author', 'username firstName lastName');
-    res.json(posts);
+
+    // ווידוא שהתמונה נשלחת עם הנתיב הנכון
+    const postsWithImages = posts.map(post => {
+      let imageUrl = null;
+      if (post.image) {
+        // המרת סלשים הפוכים לסלשים רגילים
+        let imagePath = post.image.replace(/\\/g, '/');
+        // הוספת סלש בתחילת הנתיב אם חסר
+        if (!imagePath.startsWith('/')) {
+          imagePath = '/' + imagePath;
+        }
+        imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+      }
+
+      return {
+        ...post._doc,
+        image: imageUrl
+      };
+    });
+
+    res.json(postsWithImages);
   } catch (err) {
     res.status(500).send('Error fetching posts');
   }
 });
+
 
 app.put('/posts/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
