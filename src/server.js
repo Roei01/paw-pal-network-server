@@ -48,7 +48,8 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   dateOfBirth: { type: Date, required: true },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // הוסף שדה זה
 });
 
 const PostSchema = new mongoose.Schema({
@@ -58,6 +59,14 @@ const PostSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+});
+
+const Schema = mongoose.Schema;
+
+const SavePostSchema = new Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // הוסף שדה זה
 });
 
 const User = mongoose.model('User', UserSchema);
@@ -225,26 +234,26 @@ app.put('/posts/:id', authenticateToken, async (req, res) => {
     res.status(500).send('Error updating post');
   }
 });
-
 app.delete('/posts/:id', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const post = await Post.findById(id);
+    const postId = req.params.id;
+    const post = await Post.findById(postId);
+
     if (!post) {
       return res.status(404).send('Post not found');
     }
 
-    if (post.author.toString() !== req.user.id) {
-      return res.status(403).send('You are not authorized to delete this post');
-    }
-
-    await post.remove();
-    res.send({ message: 'Post deleted' });
-  } catch (err) {
-    res.status(500).send('Error deleting post');
+    await Post.findByIdAndDelete(postId);
+    console.log(`Post ${postId} deleted successfully`);
+    res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    res.status(500).send('Server error');
   }
 });
+
+
+
 
 app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -292,25 +301,28 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/posts/:id/save', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-
+app.post('/posts/:id/save', async (req, res) => {
   try {
-    const post = await Post.findById(id);
-    if (!post) {
-      return res.status(404).send('Post not found');
+    const postId = req.params.id;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const userId = req.user.id;
-    if (!post.savedBy.includes(userId)) {
-      post.savedBy.push(userId);
-      await post.save();
-    }
-    res.send(post);
-  } catch (err) {
-    res.status(500).send('Error saving post');
+    // בדוק אם הפוסט כבר שמור אצל המשתמש
+   
+      user.savedPosts.push(postId);
+      await user.save();
+      return res.status(200).json({ message: 'Post saved successfully' });
+    
+  } catch (error) {
+    console.error('Error saving post:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 
 app.post('/follow/:id', authenticateToken, async (req, res) => {
