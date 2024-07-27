@@ -160,7 +160,6 @@ app.get('/profile/:username', authenticateToken, async (req, res) => {
 });
 
 
-
 // Post routes
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
@@ -210,10 +209,9 @@ app.get('/posts', async (req, res) => {
   }
 });
 
-app.put('/posts/:id', authenticateToken, upload.single('image'), async (req, res) => {
+app.put('/posts/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { description, removeImage } = req.body;
-  const image = req.file ? `/uploads/${req.file.filename}` : null;
+  const { description, image } = req.body;
 
   try {
     const post = await Post.findById(id);
@@ -226,12 +224,7 @@ app.put('/posts/:id', authenticateToken, upload.single('image'), async (req, res
     }
 
     post.description = description || post.description;
-
-    if (image) {
-      post.image = image;
-    } else if (removeImage === 'true') {
-      post.image = null;
-    }
+    post.image = image || post.image;
 
     await post.save();
     res.send(post);
@@ -239,7 +232,6 @@ app.put('/posts/:id', authenticateToken, upload.single('image'), async (req, res
     res.status(500).send('Error updating post');
   }
 });
-
 
 app.delete('/posts/:id', authenticateToken, async (req, res) => {
   try {
