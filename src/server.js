@@ -275,14 +275,29 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/posts/:id/unlike', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).send('Post not found');
+
+    post.likes = post.likes.filter(userId => userId.toString() !== req.user.id);
+    await post.save();
+
+    res.status(200).send(post);
+  } catch (err) {
+    console.error('Error unliking post:', err);
+    res.status(500).send('Server error');
+  }
+});
+
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const originalPost = await Post.findById(id);
-    if (!originalPost) {
-      return res.status(404).send('Post not found');
-    }
+    if (!originalPost) return res.status(404).send('Post not found');
 
     const newPost = new Post({
       description: `Shared post: ${originalPost.description}`,
@@ -294,7 +309,25 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
     await newPost.save();
     res.status(201).send(newPost);
   } catch (err) {
-    res.status(500).send('Error sharing post');
+    res.status(500).send('Server error');
+  }
+});
+
+app.post('/posts/:id/unshare', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).send('Post not found');
+
+    const userId = req.user.id;
+
+    post.shares = post.shares.filter(share => share.toString() !== userId);
+    await post.save();
+
+    res.status(200).send('Post unshared');
+  } catch (err) {
+    res.status(500).send('Server error');
   }
 });
 
@@ -319,8 +352,6 @@ app.post('/posts/:id/save', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
-
 
 app.post('/follow/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -384,20 +415,6 @@ app.get('/feed', authenticateToken, async (req, res) => {
     res.status(500).send('Error fetching feed');
   }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 app.post('/change-password', authenticateToken, async (req, res) => {
   try {
@@ -464,17 +481,6 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
 });
-
-
-
-
-
-
-
-
-
-
-
 
 app.get('/about', (req, res) => {
   const aboutContent = {
