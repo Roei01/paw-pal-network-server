@@ -133,7 +133,7 @@ app.post('/login', async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return res.status(400).send('Invalid credentials');
 
-  const token = jwt.sign({ id: user._id, username: user.username }, 'secretKey', { expiresIn: '1h' });
+  const token = jwt.sign({ id: user._id, username: user.username, firstName: user.firstName, lastName: user.lastName}, 'secretKey', { expiresIn: '1h' });
   res.json({ token });
 });
 
