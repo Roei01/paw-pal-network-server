@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import nodemailer from 'nodemailer';
+import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -51,14 +52,11 @@ const UserSchema = new mongoose.Schema({
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
-  shares:[{ 
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    text: String,
-    createdAt: { type: Date, default: Date.now }
-  }]
+  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // עדכון הסכמה לשמור מזהי פוסטים
 });
 
 const PostSchema = new mongoose.Schema({
+  id: { type: String, required: true, default: uuidv4 }, // הוספת ברירת מחדל ליצירת מזהה ייחודי
   description: { type: String, required: true },
   image: { type: String },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -213,6 +211,7 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
 
   try {
     const post = new Post({
+      id: uuidv4(), // יצירת מזהה ייחודי לפוסט
       description,
       image,
       author: req.user.id
@@ -224,6 +223,7 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     res.status(500).send('Error creating post');
   }
 });
+
 
 
 
@@ -276,8 +276,12 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
   try {
     const post = await Post.findById(id);
+    const user = await User.findById(req.user.id);
     if (!post) {
       return res.status(404).send('Post not found');
+    }
+    if (!user) {
+      return res.status(404).send('User not found');
     }
 
     const userId = req.user.id;
@@ -287,6 +291,13 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
       post.likes.push(userId);
     }
 
+    if (user.likes.includes(id)) {
+      user.likes.pull(id);
+    } else {
+      user.likes.push(id);
+    }
+    
+    await user.save();
     await post.save();
     res.send(post);
   } catch (err) {
@@ -294,54 +305,63 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   }
 });
 
+
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { text } = req.body; // הנחת שיש תגובה ב-body של הבקשה
 
   try {
-    console.log(req.user.id)
-    const originalUser = await User.findById(req.user.id);
+    const originalPost = await Post.findById(id);
     if (!originalPost) {
-      console.log("b")
       return res.status(404).send('Post not found');
     }
-    console.log("c")
+
     // הוספת השיתוף החדש לרשימת השיתופים של הפוסט המקורי
-    originalUser.shares.push({
+    originalPost.shares.push({
       user: req.user.id,
       text: text || '', // טקסט ברירת מחדל ריק אם אין תגובה
       createdAt: new Date()
     });
-    console.log("d")
 
+    // הוספת מזהה הפוסט ששיתף לרשימת השיתופים של המשתמש
+    const user = await User.findById(req.user.id);
+    user.shares.push(id);
 
-    await originalUser.save();
-    res.status(200).send(originalUser);
+    await originalPost.save();
+    await user.save();
+    res.status(200).send(originalPost);
   } catch (err) {
     res.status(500).send('Error sharing post');
   }
 });
-app.post('/posts/:id/save', async (req, res) => {
-  try {
-    const postId = req.params.id;
-    const userId = req.user.id;
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+
+
+app.post('/posts/:id/save', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const post = await Post.findById(id);
+    if (!post) {
+      return res.status(404).send('Post not found');
     }
 
-    // בדוק אם הפוסט כבר שמור אצל המשתמש
-   
-      user.savedPosts.push(postId);
-      await user.save();
-      return res.status(200).json({ message: 'Post saved successfully' });
-    
-  } catch (error) {
-    console.error('Error saving post:', error);
-    res.status(500).json({ message: 'Server error' });
+    // הוספת מזהה הפוסט לרשימת השמירות של המשתמש
+    const user = await User.findById(req.user.id);
+    if (!user.savedPosts.includes(id)) {
+      user.savedPosts.push(id);
+    } else {
+      return res.status(400).send('Post already saved');
+    }
+
+    await user.save();
+    res.status(200).send(user);
+  } catch (err) {
+    console.error('Error saving post:', err);
+    res.status(500).send('Error saving post');
   }
 });
+
 
 
 
