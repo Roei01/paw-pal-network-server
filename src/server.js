@@ -49,6 +49,7 @@ const UserSchema = new mongoose.Schema({
   dateOfBirth: { type: Date, required: true },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
   shares:[{ 
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
