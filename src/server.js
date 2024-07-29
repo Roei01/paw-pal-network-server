@@ -209,31 +209,23 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
   const { description } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
 
-  if (!description || !author) {
-    return res.status(400).send('Missing required fields');
-  }
-
-  const newPost = new Post({
-    description,
-    image,
-    author
-  });
-
-  await post.save();
-  res.status(201).send(post);
-},{ catch (err) {
-  res.status(500).send('Error creating post');
-}
-});
-
-app.get('/posts', async (req, res) => {
   try {
-    const posts = await Post.find().populate('author', 'username firstName lastName');
-    res.json(posts);
+    const post = new Post({
+      id: uuidv4(), // יצירת מזהה ייחודי לפוסט
+      description,
+      image,
+      author: req.user.id
+    });
+
+    await post.save();
+    res.status(201).send(post);
   } catch (err) {
-    res.status(500).send('Error fetching posts');
+    res.status(500).send('Error creating post');
   }
 });
+
+
+
 
 app.put('/posts/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
