@@ -534,7 +534,6 @@ app.get('/getUserDetails', (req, res) => {
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
 });
 
 app.listen(port, () => {
