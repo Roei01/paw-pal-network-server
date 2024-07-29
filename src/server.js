@@ -49,7 +49,12 @@ const UserSchema = new mongoose.Schema({
   dateOfBirth: { type: Date, required: true },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // הוסף שדה זה
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
+  shares:[{ 
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    text: String,
+    createdAt: { type: Date, default: Date.now }
+  }]
 });
 
 const PostSchema = new mongoose.Schema({
@@ -58,7 +63,11 @@ const PostSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  shares:[{ 
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    text: String,
+    createdAt: { type: Date, default: Date.now }
+  }]
 });
 
 const Schema = mongoose.Schema;
@@ -159,31 +168,16 @@ app.get('/profile/:username', authenticateToken, async (req, res) => {
   }
 });
 
-
-
-// Post routes
-app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
-  const { description } = req.body;
-  const image = req.file ? `/uploads/${req.file.filename}` : null;
-
+app.get('/feed', authenticateToken, async (req, res) => {
   try {
-    const post = new Post({
-      description,
-      image,
-      author: req.user.id
-    });
-
-    await post.save();
-    res.status(201).send(post);
-  } catch (err) {
-    res.status(500).send('Error creating post');
-  }
-});
-
-
-app.get('/posts', async (req, res) => {
-  try {
-    const posts = await Post.find().populate('author', 'username firstName lastName');
+    const user = await User.findById(req.user.id).populate('following');
+    const followingIds = user.following.map(f => f._id);
+    const posts = await Post.find({
+      $or: [
+        { author: { $in: followingIds } },
+        { author: user._id }
+      ]
+    }).populate('author', 'username firstName lastName');
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
     const postsWithImages = posts.map(post => {
@@ -206,9 +200,30 @@ app.get('/posts', async (req, res) => {
 
     res.json(postsWithImages);
   } catch (err) {
-    res.status(500).send('Error fetching posts');
+    console.error('Error fetching feed:', err); // Add logging to see the error
+    res.status(500).send('Error fetching feed');
   }
 });
+
+
+app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
+  const { description } = req.body;
+  const image = req.file ? `/uploads/${req.file.filename}` : null;
+
+  try {
+    const post = new Post({
+      description,
+      image,
+      author: req.user.id
+    });
+
+    await post.save();
+    res.status(201).send(post);
+  } catch (err) {
+    res.status(500).send('Error creating post');
+  }
+});
+
 
 
 app.put('/posts/:id', authenticateToken, async (req, res) => {
@@ -280,27 +295,31 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
+  const { text } = req.body; // הנחת שיש תגובה ב-body של הבקשה
 
   try {
-    const originalPost = await Post.findById(id);
+    console.log(req.user.id)
+    const originalUser = await User.findById(req.user.id);
     if (!originalPost) {
+      console.log("b")
       return res.status(404).send('Post not found');
     }
-
-    const newPost = new Post({
-      description: `Shared post: ${originalPost.description}`,
-      image: originalPost.image,
-      author: req.user.id,
-      shares: [...originalPost.shares, req.user.id]
+    console.log("c")
+    // הוספת השיתוף החדש לרשימת השיתופים של הפוסט המקורי
+    originalUser.shares.push({
+      user: req.user.id,
+      text: text || '', // טקסט ברירת מחדל ריק אם אין תגובה
+      createdAt: new Date()
     });
+    console.log("d")
 
-    await newPost.save();
-    res.status(201).send(newPost);
+
+    await originalUser.save();
+    res.status(200).send(originalUser);
   } catch (err) {
     res.status(500).send('Error sharing post');
   }
 });
-
 app.post('/posts/:id/save', async (req, res) => {
   try {
     const postId = req.params.id;
@@ -369,28 +388,6 @@ app.get('/search', authenticateToken, async (req, res) => {
     res.status(500).send('Error searching users');
   }
 });
-
-app.get('/feed', authenticateToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).populate('following');
-    const followingIds = user.following.map(f => f._id);
-    const posts = await Post.find({
-      $or: [
-        { author: { $in: followingIds } },
-        { author: user._id }
-      ]
-    }).populate('author', 'username firstName lastName');
-
-    res.json(posts);
-  } catch (err) {
-    console.error('Error fetching feed:', err); // Add logging to see the error
-    res.status(500).send('Error fetching feed');
-  }
-});
-
-
-
-
 
 
 
