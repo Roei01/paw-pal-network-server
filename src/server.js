@@ -219,13 +219,12 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     author
   });
 
-    await post.save();
-    res.status(201).send(post);
-  } catch (err) {
-    res.status(500).send('Error creating post');
-  }
+  await post.save();
+  res.status(201).send(post);
+},{ catch (err) {
+  res.status(500).send('Error creating post');
+}
 });
-
 
 app.get('/posts', async (req, res) => {
   try {
