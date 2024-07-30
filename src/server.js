@@ -60,7 +60,7 @@ const PostSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  shares:[{ 
+  shares: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     text: String,
     createdAt: { type: Date, default: Date.now }
@@ -139,7 +139,7 @@ app.post('/login', async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return res.status(400).send('Invalid credentials');
 
-  const token = jwt.sign({ id: user._id, username: user.username, firstName: user.firstName, lastName: user.lastName}, 'secretKey', { expiresIn: '1h' });
+  const token = jwt.sign({ id: user._id, username: user.username, firstName: user.firstName, lastName: user.lastName }, 'secretKey', { expiresIn: '1h' });
   res.json({ token });
 });
 
@@ -292,7 +292,7 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
     } else {
       user.likes.push(id);
     }
-    
+
     await user.save();
     await post.save();
     res.send(post);
@@ -456,13 +456,26 @@ app.post('/unfollow', authenticateToken, async (req, res) => {
   res.send('Unfollowed user');
 });
 
+//return the uploaded post
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
-  // Dummy data for uploaded content
-  res.json([
-    { id: '1', title: 'Uploaded Content 1' },
-    { id: '2', title: 'Uploaded Content 2' }
-  ]);
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
+      console.log(uploadedPosts);
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
+
+
 
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
