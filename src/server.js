@@ -244,7 +244,7 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
 
     await Post.findByIdAndDelete(postId);
     console.log(`Post ${postId} deleted successfully`);
-    res.status(200).json({ message: 'Post deleted successfully' }); 
+    res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
   } catch (error) {
     console.error('Error deleting post:', error);
     res.status(500).send('Server error');
