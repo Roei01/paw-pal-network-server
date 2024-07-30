@@ -7,7 +7,6 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import nodemailer from 'nodemailer';
-import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -56,7 +55,6 @@ const UserSchema = new mongoose.Schema({
 });
 
 const PostSchema = new mongoose.Schema({
-  id: { type: String, required: true, default: uuidv4 }, // הוספת ברירת מחדל ליצירת מזהה ייחודי
   description: { type: String, required: true },
   image: { type: String },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -211,7 +209,6 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
 
   try {
     const post = new Post({
-      id: uuidv4(), // יצירת מזהה ייחודי לפוסט
       description,
       image,
       author: req.user.id
@@ -416,10 +413,6 @@ app.get('/search', authenticateToken, async (req, res) => {
 
 
 
-
-
-
-
 app.post('/change-password', authenticateToken, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -555,7 +548,6 @@ app.get('/getUserDetails', (req, res) => {
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
 });
 
 app.listen(port, () => {
