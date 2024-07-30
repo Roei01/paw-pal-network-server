@@ -28,6 +28,7 @@ const transporter = nodemailer.createTransport({
 // Middleware
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
+app.use('/uploads', express.static('uploads'));
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
@@ -47,7 +48,10 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   dateOfBirth: { type: Date, required: true },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
+  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // עדכון הסכמה לשמור מזהי פוסטים
 });
 
 const PostSchema = new mongoose.Schema({
@@ -56,7 +60,19 @@ const PostSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  shares:[{ 
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    text: String,
+    createdAt: { type: Date, default: Date.now }
+  }]
+});
+
+const Schema = mongoose.Schema;
+
+const SavePostSchema = new Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // הוסף שדה זה
 });
 
 const User = mongoose.model('User', UserSchema);
@@ -123,7 +139,7 @@ app.post('/login', async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return res.status(400).send('Invalid credentials');
 
-  const token = jwt.sign({ id: user._id, username: user.username }, 'secretKey', { expiresIn: '1h' });
+  const token = jwt.sign({ id: user._id, username: user.username, firstName: user.firstName, lastName: user.lastName}, 'secretKey', { expiresIn: '1h' });
   res.json({ token });
 });
 
@@ -149,40 +165,64 @@ app.get('/profile/:username', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/feed', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('following');
+    const followingIds = user.following.map(f => f._id);
+    const posts = await Post.find({
+      $or: [
+        { author: { $in: followingIds } },
+        { author: user._id }
+      ]
+    }).populate('author', 'username firstName lastName');
+
+    // ווידוא שהתמונה נשלחת עם הנתיב הנכון
+    const postsWithImages = posts.map(post => {
+      let imageUrl = null;
+      if (post.image) {
+        // המרת סלשים הפוכים לסלשים רגילים
+        let imagePath = post.image.replace(/\\/g, '/');
+        // הוספת סלש בתחילת הנתיב אם חסר
+        if (!imagePath.startsWith('/')) {
+          imagePath = '/' + imagePath;
+        }
+        imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+      }
+
+      return {
+        ...post._doc,
+        image: imageUrl
+      };
+    });
+
+    res.json(postsWithImages);
+  } catch (err) {
+    console.error('Error fetching feed:', err); // Add logging to see the error
+    res.status(500).send('Error fetching feed');
+  }
+});
 
 
-// Post routes
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
-  const image = req.file ? req.file.path : null;
-  const author = req.user.id;
-
-  if (!description || !author) {
-    return res.status(400).send('Missing required fields');
-  }
-
-  const newPost = new Post({
-    description,
-    image,
-    author
-  });
+  const image = req.file ? `/uploads/${req.file.filename}` : null;
 
   try {
-    await newPost.save();
-    res.status(201).send(newPost);
+    const post = new Post({
+      description,
+      image,
+      author: req.user.id
+    });
+
+    await post.save();
+    res.status(201).send(post);
   } catch (err) {
     res.status(500).send('Error creating post');
   }
 });
 
-app.get('/posts', async (req, res) => {
-  try {
-    const posts = await Post.find().populate('author', 'username firstName lastName');
-    res.json(posts);
-  } catch (err) {
-    res.status(500).send('Error fetching posts');
-  }
-});
+
+
 
 app.put('/posts/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -207,34 +247,38 @@ app.put('/posts/:id', authenticateToken, async (req, res) => {
     res.status(500).send('Error updating post');
   }
 });
-
 app.delete('/posts/:id', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const post = await Post.findById(id);
+    const postId = req.params.id;
+    const post = await Post.findById(postId);
+
     if (!post) {
       return res.status(404).send('Post not found');
     }
 
-    if (post.author.toString() !== req.user.id) {
-      return res.status(403).send('You are not authorized to delete this post');
-    }
-
-    await post.remove();
-    res.send({ message: 'Post deleted' });
-  } catch (err) {
-    res.status(500).send('Error deleting post');
+    await Post.findByIdAndDelete(postId);
+    console.log(`Post ${postId} deleted successfully`);
+    res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    res.status(500).send('Server error');
   }
 });
+
+
+
 
 app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const post = await Post.findById(id);
+    const user = await User.findById(req.user.id);
     if (!post) {
       return res.status(404).send('Post not found');
+    }
+    if (!user) {
+      return res.status(404).send('User not found');
     }
 
     const userId = req.user.id;
@@ -244,6 +288,13 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
       post.likes.push(userId);
     }
 
+    if (user.likes.includes(id)) {
+      user.likes.pull(id);
+    } else {
+      user.likes.push(id);
+    }
+    
+    await user.save();
     await post.save();
     res.send(post);
   } catch (err) {
@@ -251,8 +302,10 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   }
 });
 
+
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
+  const { text } = req.body; // הנחת שיש תגובה ב-body של הבקשה
 
   try {
     const originalPost = await Post.findById(id);
@@ -260,19 +313,26 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
-    const newPost = new Post({
-      description: `Shared post: ${originalPost.description}`,
-      image: originalPost.image,
-      author: req.user.id,
-      shares: [...originalPost.shares, req.user.id]
+    // הוספת השיתוף החדש לרשימת השיתופים של הפוסט המקורי
+    originalPost.shares.push({
+      user: req.user.id,
+      text: text || '', // טקסט ברירת מחדל ריק אם אין תגובה
+      createdAt: new Date()
     });
 
-    await newPost.save();
-    res.status(201).send(newPost);
+    // הוספת מזהה הפוסט ששיתף לרשימת השיתופים של המשתמש
+    const user = await User.findById(req.user.id);
+    user.shares.push(id);
+
+    await originalPost.save();
+    await user.save();
+    res.status(200).send(originalPost);
   } catch (err) {
     res.status(500).send('Error sharing post');
   }
 });
+
+
 
 app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -283,16 +343,23 @@ app.post('/posts/:id/save', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
-    const userId = req.user.id;
-    if (!post.savedBy.includes(userId)) {
-      post.savedBy.push(userId);
-      await post.save();
+    // הוספת מזהה הפוסט לרשימת השמירות של המשתמש
+    const user = await User.findById(req.user.id);
+    if (!user.savedPosts.includes(id)) {
+      user.savedPosts.push(id);
+    } else {
+      return res.status(400).send('Post already saved');
     }
-    res.send(post);
+
+    await user.save();
+    res.status(200).send(user);
   } catch (err) {
+    console.error('Error saving post:', err);
     res.status(500).send('Error saving post');
   }
 });
+
+
 
 
 app.post('/follow/:id', authenticateToken, async (req, res) => {
@@ -339,32 +406,6 @@ app.get('/search', authenticateToken, async (req, res) => {
     res.status(500).send('Error searching users');
   }
 });
-
-app.get('/feed', authenticateToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).populate('following');
-    const followingIds = user.following.map(f => f._id);
-    const posts = await Post.find({
-      $or: [
-        { author: { $in: followingIds } },
-        { author: user._id }
-      ]
-    }).populate('author', 'username firstName lastName');
-
-    res.json(posts);
-  } catch (err) {
-    console.error('Error fetching feed:', err); // Add logging to see the error
-    res.status(500).send('Error fetching feed');
-  }
-});
-
-
-
-
-
-
-
-
 
 
 
