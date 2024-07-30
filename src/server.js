@@ -202,7 +202,6 @@ app.get('/feed', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
@@ -469,8 +468,11 @@ app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (user) {
-      const favoriteData = user.likes;
-      res.json(favoriteData);
+      const favoritePostIds = user.likes;
+      console.log(favoritePostIds);
+      const favoritePosts = await Post.find({ _id: { $in: favoritePostIds } });
+      console.log(favoritePosts);
+      res.json(favoritePosts);
     } else {
       res.status(404).send('User not found');
     }
@@ -545,6 +547,7 @@ app.post('/contact', async (req, res) => {
 app.get('/getUserDetails', (req, res) => {
   res.json(aboutContent);
 });
+
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
