@@ -448,8 +448,15 @@ app.delete('/delete-account', authenticateToken, async (req, res) => {
 });
 
 app.get('/following', authenticateToken, async (req, res) => {
-  // Dummy data for following
-  res.json(['user1', 'user2', 'user3']);
+  try {
+
+    res.json([
+      { id: '1', title: 'Uploaded Content 1' },
+      { id: '2', title: 'Uploaded Content 2' }
+    ]);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
 
 app.post('/unfollow', authenticateToken, async (req, res) => {
@@ -466,12 +473,19 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
 });
 
 app.get('/favorite-content', authenticateToken, async (req, res) => {
-  // Dummy data for favorite content
-  res.json([
-    { id: '1', title: 'Favorite Content 1' },
-    { id: '2', title: 'Favorite Content 2' }
-  ]);
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      const favoriteData = user.likes;
+      res.json(favoriteData);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
+
 
 app.get('/saved-content', authenticateToken, async (req, res) => {
   // Dummy data for saved content
