@@ -160,7 +160,7 @@ app.get('/profile/:username', authenticateToken, async (req, res) => {
 });
 
 
-// Post routes
+// Post route
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
