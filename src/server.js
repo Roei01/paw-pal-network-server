@@ -212,7 +212,8 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     const post = new Post({
       description,
       image,
-      author: req.user.id
+      author: req.user.id,
+      authorName: req.user.username
     });
 
     await post.save();
