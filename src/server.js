@@ -49,7 +49,9 @@ const UserSchema = new mongoose.Schema({
   dateOfBirth: { type: Date, required: true },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // הוסף שדה זה
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
+  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // עדכון הסכמה לשמור מזהי פוסטים
 });
 
 const PostSchema = new mongoose.Schema({
@@ -58,7 +60,11 @@ const PostSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  shares: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    text: String,
+    createdAt: { type: Date, default: Date.now }
+  }]
 });
 
 const Schema = mongoose.Schema;
@@ -133,7 +139,7 @@ app.post('/login', async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return res.status(400).send('Invalid credentials');
 
-  const token = jwt.sign({ id: user._id, username: user.username }, 'secretKey', { expiresIn: '1h' });
+  const token = jwt.sign({ id: user._id, username: user.username, firstName: user.firstName, lastName: user.lastName }, 'secretKey', { expiresIn: '1h' });
   res.json({ token });
 });
 
@@ -159,30 +165,16 @@ app.get('/profile/:username', authenticateToken, async (req, res) => {
   }
 });
 
-
-// Post route
-app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
-  const { description } = req.body;
-  const image = req.file ? `/uploads/${req.file.filename}` : null;
-
+app.get('/feed', authenticateToken, async (req, res) => {
   try {
-    const post = new Post({
-      description,
-      image,
-      author: req.user.id
-    });
-
-    await post.save();
-    res.status(201).send(post);
-  } catch (err) {
-    res.status(500).send('Error creating post');
-  }
-});
-
-
-app.get('/posts', async (req, res) => {
-  try {
-    const posts = await Post.find().populate('author', 'username firstName lastName');
+    const user = await User.findById(req.user.id).populate('following');
+    const followingIds = user.following.map(f => f._id);
+    const posts = await Post.find({
+      $or: [
+        { author: { $in: followingIds } },
+        { author: user._id }
+      ]
+    }).populate('author', 'username firstName lastName');
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
     const postsWithImages = posts.map(post => {
@@ -205,9 +197,30 @@ app.get('/posts', async (req, res) => {
 
     res.json(postsWithImages);
   } catch (err) {
-    res.status(500).send('Error fetching posts');
+    console.error('Error fetching feed:', err); // Add logging to see the error
+    res.status(500).send('Error fetching feed');
   }
 });
+
+app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
+  const { description } = req.body;
+  const image = req.file ? `/uploads/${req.file.filename}` : null;
+
+  try {
+    const post = new Post({
+      description,
+      image,
+      author: req.user.id
+    });
+
+    await post.save();
+    res.status(201).send(post);
+  } catch (err) {
+    res.status(500).send('Error creating post');
+  }
+});
+
+
 
 app.put('/posts/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -232,7 +245,6 @@ app.put('/posts/:id', authenticateToken, async (req, res) => {
     res.status(500).send('Error updating post');
   }
 });
-
 app.delete('/posts/:id', authenticateToken, async (req, res) => {
   try {
     const postId = req.params.id;
@@ -251,6 +263,20 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
   }
 });
 
+
+app.post('/posts/:id/unlike', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).send('Post not found');
+    post.likes = post.likes.filter(userId => userId.toString() !== req.user.id);
+    await post.save();
+    res.status(200).send(post);
+  } catch (err) {
+    console.error('Error unliking post:', err);
+    res.status(500).send('Server error');
+  }
+});
 
 app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -275,59 +301,56 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/posts/:id/unlike', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const post = await Post.findById(id);
-    if (!post) return res.status(404).send('Post not found');
-
-    post.likes = post.likes.filter(userId => userId.toString() !== req.user.id);
-    await post.save();
-
-    res.status(200).send(post);
-  } catch (err) {
-    console.error('Error unliking post:', err);
-    res.status(500).send('Server error');
-  }
-});
 
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
+  const { text } = req.body; // הנחת שיש תגובה ב-body של הבקשה
 
   try {
     const originalPost = await Post.findById(id);
     if (!originalPost) return res.status(404).send('Post not found');
 
-    const newPost = new Post({
-      description: `Shared post: ${originalPost.description}`,
-      image: originalPost.image,
-      author: req.user.id,
-      shares: [...originalPost.shares, req.user.id]
+    // הוספת השיתוף החדש לרשימת השיתופים של הפוסט המקורי
+    originalPost.shares.push({
+      user: req.user.id,
+      text: text || '', // טקסט ברירת מחדל ריק אם אין תגובה
+      createdAt: new Date()
     });
 
-    await newPost.save();
-    res.status(201).send(newPost);
+    // הוספת מזהה הפוסט ששיתף לרשימת השיתופים של המשתמש
+    const user = await User.findById(req.user.id);
+    user.shares.push(id);
+
+    await originalPost.save();
+    await user.save();
+    res.status(200).send(originalPost);
   } catch (err) {
     res.status(500).send('Server error');
   }
 });
 
-app.post('/posts/:id/unshare', authenticateToken, async (req, res) => {
+
+
+app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const post = await Post.findById(id);
     if (!post) return res.status(404).send('Post not found');
 
-    const userId = req.user.id;
+    // הוספת מזהה הפוסט לרשימת השמירות של המשתמש
+    const user = await User.findById(req.user.id);
+    if (!user.savedPosts.includes(id)) {
+      user.savedPosts.push(id);
+    } else {
+      return res.status(400).send('Post already saved');
+    }
 
-    post.shares = post.shares.filter(share => share.toString() !== userId);
-    await post.save();
-
-    res.status(200).send('Post unshared');
+    await user.save();
+    res.status(200).send(user);
   } catch (err) {
-    res.status(500).send('Server error');
+    console.error('Error saving post:', err);
+    res.status(500).send('Error saving post');
   }
 });
 
@@ -352,6 +375,8 @@ app.post('/posts/:id/save', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
 
 app.post('/follow/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -398,23 +423,23 @@ app.get('/search', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/feed', authenticateToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).populate('following');
-    const followingIds = user.following.map(f => f._id);
-    const posts = await Post.find({
-      $or: [
-        { author: { $in: followingIds } },
-        { author: user._id }
-      ]
-    }).populate('author', 'username firstName lastName');
 
-    res.json(posts);
+app.get('/users/:username', authenticateToken, async (req, res) => {
+  const { username } = req.params;
+
+  try {
+    const user = await User.findOne({ username }).select('username firstName lastName email'); // בחירת שדות להצגה
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+    res.json(user);
   } catch (err) {
-    console.error('Error fetching feed:', err); // Add logging to see the error
-    res.status(500).send('Error fetching feed');
+    res.status(500).send('Error retrieving user');
   }
 });
+
+
+
 
 app.post('/change-password', authenticateToken, async (req, res) => {
   try {
@@ -443,31 +468,135 @@ app.delete('/delete-account', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/following', authenticateToken, async (req, res) => {
-  // Dummy data for following
-  res.json(['user1', 'user2', 'user3']);
+
+app.post('/following', authenticateToken, async (req, res) => {
+  try {
+    const usernameToFollow = req.body.username; // Username of the user to follow
+    const currentUsername = req.user.username; // Username of the logged-in user
+
+    // Check if the user is trying to follow themselves
+    if (usernameToFollow === currentUsername) {
+      return res.status(400).send('You cannot follow yourself');
+    }
+
+    // Find the user to follow
+    const userToFollow = await User.findOne({ username: usernameToFollow });
+    if (!userToFollow) {
+      return res.status(404).send('User not found');
+    }
+
+    // Find the current logged-in user
+    const currentUser = await User.findOne({ username: currentUsername });
+    if (!currentUser) {
+      return res.status(404).send('Current user not found');
+    }
+
+    // Check if the current user is already following the user
+    if (currentUser.following.includes(userToFollow._id)) {
+      return res.status(400).send('Already following this user');
+    }
+
+    // Add the user to the following list of the current user
+    currentUser.following.push(userToFollow._id);
+    await currentUser.save();
+
+    res.json({ message: `Now following ${usernameToFollow}` });
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
+
 
 app.post('/unfollow', authenticateToken, async (req, res) => {
-  // Handle unfollow logic here
-  res.send('Unfollowed user');
+  try {
+    const usernameToUnfollow = req.body.username; // Username of the user to unfollow
+    const currentUsername = req.user.username; // Username of the logged-in user
+
+    // Find the user to unfollow
+    const userToUnfollow = await User.findOne({ username: usernameToUnfollow });
+    if (!userToUnfollow) {
+      return res.status(404).send('User not found');
+    }
+
+    // Find the current logged-in user
+    const currentUser = await User.findOne({ username: currentUsername });
+    if (!currentUser) {
+      return res.status(404).send('Current user not found');
+    }
+
+    // Check if the current user is not following the user
+    if (!currentUser.following.includes(userToUnfollow._id)) {
+      return res.status(400).send('Not following this user');
+    }
+
+    // Remove the user from the following list of the current user
+    currentUser.following = currentUser.following.filter(followingId => !followingId.equals(userToUnfollow._id));
+    await currentUser.save();
+
+    res.json({ message: `Unfollowed ${usernameToUnfollow}` });
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
 
-app.get('/uploaded-content', authenticateToken, async (req, res) => {
-  // Dummy data for uploaded content
-  res.json([
-    { id: '1', title: 'Uploaded Content 1' },
-    { id: '2', title: 'Uploaded Content 2' }
-  ]);
+
+app.get('/current-user-following', authenticateToken, async (req, res) => {
+  try {
+    const currentUser = req.user; // המשתמש המחובר
+
+    // מציאת המשתמש המחובר במסד הנתונים
+    const user = await User.findOne({ username: currentUser.username }).populate('following', 'username');
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // החזרת רשימת המשתמשים שהמשתמש עוקב אחריהם
+    const following = user.following.map(user => user.username);
+    res.json({ following });
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
+
+
+//return the uploaded post
+app.get('/uploaded-content', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
+      console.log(uploadedPosts);
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+
 
 app.get('/favorite-content', authenticateToken, async (req, res) => {
-  // Dummy data for favorite content
-  res.json([
-    { id: '1', title: 'Favorite Content 1' },
-    { id: '2', title: 'Favorite Content 2' }
-  ]);
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      const favoritePostIds = user.likes;
+      console.log(favoritePostIds);
+      const favoritePosts = await Post.find({ _id: { $in: favoritePostIds } });
+      console.log(favoritePosts);
+      res.json(favoritePosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
+
 
 app.get('/saved-content', authenticateToken, async (req, res) => {
   // Dummy data for saved content
@@ -524,9 +653,9 @@ app.get('/getUserDetails', (req, res) => {
   res.json(aboutContent);
 });
 
+
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/paw-pal-network-client/browser', 'index.html'));
 });
 
 app.listen(port, () => {
