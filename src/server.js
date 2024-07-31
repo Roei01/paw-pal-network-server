@@ -212,7 +212,7 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
       description,
       image,
       author: req.user.id,
-      authorName:req.user.username
+      authorName: req.user.username
     });
 
     await post.save();
@@ -267,27 +267,19 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
 });
 
 
-app.post('/posts/:id/unlike', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const post = await Post.findById(id);
-    if (!post) return res.status(404).send('Post not found');
-    post.likes = post.likes.filter(userId => userId.toString() !== req.user.id);
-    await post.save();
-    res.status(200).send(post);
-  } catch (err) {
-    console.error('Error unliking post:', err);
-    res.status(500).send('Server error');
-  }
-});
+
 
 app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const post = await Post.findById(id);
+    const user = await User.findById(req.user.id);
     if (!post) {
       return res.status(404).send('Post not found');
+    }
+    if (!user) {
+      return res.status(404).send('User not found');
     }
 
     const userId = req.user.id;
@@ -297,6 +289,13 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
       post.likes.push(userId);
     }
 
+    if (user.likes.includes(id)) {
+      user.likes.pull(id);
+    } else {
+      user.likes.push(id);
+    }
+
+    await user.save();
     await post.save();
     res.send(post);
   } catch (err) {
@@ -410,19 +409,7 @@ app.get('/search', authenticateToken, async (req, res) => {
 });
 
 
-app.get('/users/:username', authenticateToken, async (req, res) => {
-  const { username } = req.params;
 
-  try {
-    const user = await User.findOne({ username }).select('username firstName lastName email'); // בחירת שדות להצגה
-    if (!user) {
-      return res.status(404).send('User not found');
-    }
-    res.json(user);
-  } catch (err) {
-    res.status(500).send('Error retrieving user');
-  }
-});
 
 
 
@@ -458,97 +445,24 @@ app.delete('/delete-account', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/following', authenticateToken, async (req, res) => {
+app.get('/following', authenticateToken, async (req, res) => {
   try {
-    const usernameToFollow = req.body.username; // Username of the user to follow
-    const currentUsername = req.user.username; // Username of the logged-in user
 
-    // Check if the user is trying to follow themselves
-    if (usernameToFollow === currentUsername) {
-      return res.status(400).send('You cannot follow yourself');
-    }
-
-    // Find the user to follow
-    const userToFollow = await User.findOne({ username: usernameToFollow });
-    if (!userToFollow) {
-      return res.status(404).send('User not found');
-    }
-
-    // Find the current logged-in user
-    const currentUser = await User.findOne({ username: currentUsername });
-    if (!currentUser) {
-      return res.status(404).send('Current user not found');
-    }
-
-    // Check if the current user is already following the user
-    if (currentUser.following.includes(userToFollow._id)) {
-      return res.status(400).send('Already following this user');
-    }
-
-    // Add the user to the following list of the current user
-    currentUser.following.push(userToFollow._id);
-    await currentUser.save();
-
-    res.json({ message: `Now following ${usernameToFollow}` });
+    res.json([
+      { id: '1', title: 'Uploaded Content 1' },
+      { id: '2', title: 'Uploaded Content 2' }
+    ]);
   } catch (error) {
     res.status(500).send(error.message);
   }
 });
-
 
 app.post('/unfollow', authenticateToken, async (req, res) => {
-  try {
-    const usernameToUnfollow = req.body.username; // Username of the user to unfollow
-    const currentUsername = req.user.username; // Username of the logged-in user
-
-    // Find the user to unfollow
-    const userToUnfollow = await User.findOne({ username: usernameToUnfollow });
-    if (!userToUnfollow) {
-      return res.status(404).send('User not found');
-    }
-
-    // Find the current logged-in user
-    const currentUser = await User.findOne({ username: currentUsername });
-    if (!currentUser) {
-      return res.status(404).send('Current user not found');
-    }
-
-    // Check if the current user is not following the user
-    if (!currentUser.following.includes(userToUnfollow._id)) {
-      return res.status(400).send('Not following this user');
-    }
-
-    // Remove the user from the following list of the current user
-    currentUser.following = currentUser.following.filter(followingId => !followingId.equals(userToUnfollow._id));
-    await currentUser.save();
-
-    res.json({ message: `Unfollowed ${usernameToUnfollow}` });
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
+  // Handle unfollow logic here
+  res.send('Unfollowed user');
 });
 
-
-app.get('/current-user-following', authenticateToken, async (req, res) => {
-  try {
-    const currentUser = req.user; // המשתמש המחובר
-
-    // מציאת המשתמש המחובר במסד הנתונים
-    const user = await User.findOne({ username: currentUser.username }).populate('following', 'username');
-    if (!user) {
-      return res.status(404).send('User not found');
-    }
-
-    // החזרת רשימת המשתמשים שהמשתמש עוקב אחריהם
-    const following = user.following.map(user => user.username);
-    res.json({ following });
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-
-//return the uploaded post
+//return the uploaded post(personal-area)
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -566,7 +480,6 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
     res.status(500).send(error.message);
   }
 });
-
 
 
 //return the favorite post(personal-area)
