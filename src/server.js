@@ -58,6 +58,7 @@ const PostSchema = new mongoose.Schema({
   description: { type: String, required: true },
   image: { type: String },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  authorName: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   shares: [{
@@ -210,7 +211,8 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     const post = new Post({
       description,
       image,
-      author: req.user.id
+      author: req.user.id,
+      authorName: req.user.username
     });
 
     await post.save();
@@ -255,7 +257,6 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
     }
 
     await Post.findByIdAndDelete(postId);
-    console.log(`Post ${postId} deleted successfully`);
     res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
   } catch (error) {
     console.error('Error deleting post:', error);
@@ -559,15 +560,13 @@ app.get('/current-user-following', authenticateToken, async (req, res) => {
 });
 
 
-//return the uploaded post
+//return the uploaded post(personal-area)
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (user) {
       // Fetch posts where author matches the user's ID
       const uploadedPosts = await Post.find({ author: user.id });
-
-      console.log(uploadedPosts);
 
       res.json(uploadedPosts);
     } else {
@@ -579,15 +578,13 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
 });
 
 
-
+//return the favorite post(personal-area)
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (user) {
       const favoritePostIds = user.likes;
-      console.log(favoritePostIds);
       const favoritePosts = await Post.find({ _id: { $in: favoritePostIds } });
-      console.log(favoritePosts);
       res.json(favoritePosts);
     } else {
       res.status(404).send('User not found');
@@ -597,19 +594,43 @@ app.get('/favorite-content', authenticateToken, async (req, res) => {
   }
 });
 
-
+//return the save post(personal-area)
 app.get('/saved-content', authenticateToken, async (req, res) => {
-  // Dummy data for saved content
-  res.json([
-    { id: '1', title: 'Saved Content 1' },
-    { id: '2', title: 'Saved Content 2' }
-  ]);
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      const savedPostIds = user.savedPosts;
+      const savedPosts = await Post.find({ _id: { $in: savedPostIds } });
+      res.json(savedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
 
 app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
 });
+
+
+app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
+  // Handle removal of uploaded content
+  res.send('Uploaded content removed');
+});
+
+
+
+
+
+
+
+
+
+
+
 
 app.get('/about', (req, res) => {
   const aboutContent = {
