@@ -484,9 +484,7 @@ app.get('/favorite-content', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (user) {
       const favoritePostIds = user.likes;
-      console.log(favoritePostIds);
       const favoritePosts = await Post.find({ _id: { $in: favoritePostIds } });
-      console.log(favoritePosts);
       res.json(favoritePosts);
     } else {
       res.status(404).send('User not found');
@@ -496,13 +494,22 @@ app.get('/favorite-content', authenticateToken, async (req, res) => {
   }
 });
 
-
+//return the save post(personal-area)
 app.get('/saved-content', authenticateToken, async (req, res) => {
-  // Dummy data for saved content
-  res.json([
-    { id: '1', title: 'Saved Content 1' },
-    { id: '2', title: 'Saved Content 2' }
-  ]);
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      const savedPostIds = user.savedPosts;
+      console.log(savedPostIds);
+      const savedPosts = await Post.find({ _id: { $in: savedPostIds } });
+      console.log(savedPosts);
+      res.json(savedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
 
 app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
