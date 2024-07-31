@@ -58,6 +58,7 @@ const PostSchema = new mongoose.Schema({
   description: { type: String, required: true },
   image: { type: String },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  authorName: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   shares: [{
@@ -210,7 +211,8 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     const post = new Post({
       description,
       image,
-      author: req.user.id
+      author: req.user.id,
+      authorName: req.user.username
     });
 
     await post.save();
@@ -456,7 +458,7 @@ app.post('/unfollow', authenticateToken, async (req, res) => {
   res.send('Unfollowed user');
 });
 
-//return the uploaded post
+//return the uploaded post(personal-area)
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -476,7 +478,7 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
 });
 
 
-
+//return the favorite post(personal-area)
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
