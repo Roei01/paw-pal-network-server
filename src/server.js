@@ -58,6 +58,7 @@ const PostSchema = new mongoose.Schema({
   description: { type: String, required: true },
   image: { type: String },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  authorName: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   shares: [{
@@ -202,6 +203,7 @@ app.get('/feed', authenticateToken, async (req, res) => {
   }
 });
 
+
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
@@ -210,7 +212,8 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     const post = new Post({
       description,
       image,
-      author: req.user.id
+      author: req.user.id,
+      authorName: req.user.username
     });
 
     await post.save();
@@ -219,6 +222,7 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     res.status(500).send('Error creating post');
   }
 });
+
 
 
 
@@ -308,7 +312,9 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
 
   try {
     const originalPost = await Post.findById(id);
-    if (!originalPost) return res.status(404).send('Post not found');
+    if (!originalPost) {
+      return res.status(404).send('Post not found');
+    }
 
     // הוספת השיתוף החדש לרשימת השיתופים של הפוסט המקורי
     originalPost.shares.push({
@@ -325,7 +331,7 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
     await user.save();
     res.status(200).send(originalPost);
   } catch (err) {
-    res.status(500).send('Server error');
+    res.status(500).send('Error sharing post');
   }
 });
 
@@ -336,7 +342,9 @@ app.post('/posts/:id/save', authenticateToken, async (req, res) => {
 
   try {
     const post = await Post.findById(id);
-    if (!post) return res.status(404).send('Post not found');
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
 
     // הוספת מזהה הפוסט לרשימת השמירות של המשתמש
     const user = await User.findById(req.user.id);
@@ -354,27 +362,6 @@ app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/posts/:id/save', async (req, res) => {
-  try {
-    const postId = req.params.id;
-    const userId = req.user.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // בדוק אם הפוסט כבר שמור אצל המשתמש
-   
-      user.savedPosts.push(postId);
-      await user.save();
-      return res.status(200).json({ message: 'Post saved successfully' });
-    
-  } catch (error) {
-    console.error('Error saving post:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
 
 
 
@@ -559,7 +546,7 @@ app.get('/current-user-following', authenticateToken, async (req, res) => {
 });
 
 
-//return the uploaded post
+//return the uploaded post(personal-area)
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -579,15 +566,13 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
 });
 
 
-
+//return the favorite post(personal-area)
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (user) {
       const favoritePostIds = user.likes;
-      console.log(favoritePostIds);
       const favoritePosts = await Post.find({ _id: { $in: favoritePostIds } });
-      console.log(favoritePosts);
       res.json(favoritePosts);
     } else {
       res.status(404).send('User not found');
@@ -597,19 +582,45 @@ app.get('/favorite-content', authenticateToken, async (req, res) => {
   }
 });
 
-
+//return the save post(personal-area)
 app.get('/saved-content', authenticateToken, async (req, res) => {
-  // Dummy data for saved content
-  res.json([
-    { id: '1', title: 'Saved Content 1' },
-    { id: '2', title: 'Saved Content 2' }
-  ]);
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      const savedPostIds = user.savedPosts;
+      console.log(savedPostIds);
+      const savedPosts = await Post.find({ _id: { $in: savedPostIds } });
+      console.log(savedPosts);
+      res.json(savedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
 });
 
 app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
 });
+
+
+app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
+  // Handle removal of uploaded content
+  res.send('Uploaded content removed');
+});
+
+
+
+
+
+
+
+
+
+
+
 
 app.get('/about', (req, res) => {
   const aboutContent = {
