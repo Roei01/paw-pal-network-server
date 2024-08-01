@@ -249,6 +249,8 @@ app.put('/posts/:id', authenticateToken, async (req, res) => {
     res.status(500).send('Error updating post');
   }
 });
+
+
 app.delete('/posts/:id', authenticateToken, async (req, res) => {
   try {
     const postId = req.params.id;
@@ -267,21 +269,8 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
 });
 
 
-app.post('/posts/:id/unlike', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const post = await Post.findById(id);
-    if (!post) return res.status(404).send('Post not found');
-    post.likes = post.likes.filter(userId => userId.toString() !== req.user.id);
-    await post.save();
-    res.status(200).send(post);
-  } catch (err) {
-    console.error('Error unliking post:', err);
-    res.status(500).send('Server error');
-  }
-});
 
-app.post('/posts/:id/like', authenticateToken, async (req, res) => {
+app.post('/posts/:id/like', authenticateToken, async (req, res) => {   //like and unlike
   const { id } = req.params;
 
   try {
@@ -334,8 +323,17 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
 
     // הוספת מזהה הפוסט ששיתף לרשימת השיתופים של המשתמש
     const user = await User.findById(req.user.id);
-    user.shares.push(id);
+    if (post.shares.includes(userId)) {
+      post.shares.pull(userId);
+    } else {
+      post.shares.push(userId);
+    }
 
+    if (user.shares.includes(id)) {
+      user.shares.pull(id);
+    } else {
+      user.shares.push(id);
+    }
     await originalPost.save();
     await user.save();
     res.status(200).send(originalPost);
@@ -345,6 +343,19 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
 });
 
 
+app.post('/posts/:id/unsave', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).send('Post not found');
+    post.save = post.save.filter(userId => userId.toString() !== req.user.id);
+    await post.save();
+    res.status(200).send(post);
+  } catch (err) {
+    console.error('Error unsaving post:', err);
+    res.status(500).send('Server error');
+  }
+});
 
 app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   const { id } = req.params;
