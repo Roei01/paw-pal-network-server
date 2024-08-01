@@ -286,8 +286,12 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
   try {
     const post = await Post.findById(id);
+    const user = await User.findById(req.user.id);
     if (!post) {
       return res.status(404).send('Post not found');
+    }
+    if (!user) {
+      return res.status(404).send('User not found');
     }
 
     const userId = req.user.id;
@@ -297,13 +301,19 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
       post.likes.push(userId);
     }
 
+    if (user.likes.includes(id)) {
+      user.likes.pull(id);
+    } else {
+      user.likes.push(id);
+    }
+
+    await user.save();
     await post.save();
     res.send(post);
   } catch (err) {
     res.status(500).send('Error liking/unliking post');
   }
 });
-
 
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
