@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      
 jobs:
   build-test-lint:
     runs-on: ubuntu-latest
