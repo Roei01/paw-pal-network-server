@@ -45,6 +45,7 @@ const UserSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
+  pet: { type: String },
   password: { type: String, required: true },
   dateOfBirth: { type: Date, required: true },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -702,6 +703,35 @@ app.post('/contact', async (req, res) => {
 
 app.get('/getUserDetails', (req, res) => {
   res.json(aboutContent);
+});
+
+// Update user details
+app.put('/user-details', authenticateToken , async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { username, firstName, lastName, email, pet } = req.body;
+
+    // Find the user by ID
+    let user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Update user details
+    user.username = username || user.username;
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.email = email || user.email;
+    user.pet = pet || user.pet;
+
+    // Save the updated user
+    await user.save();
+
+    res.send({ msg: 'User details updated successfully' });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Server error');
+  }
 });
 
 
