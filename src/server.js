@@ -259,7 +259,6 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
     }
 
     await Post.findByIdAndDelete(postId);
-    console.log(`Post ${postId} deleted successfully`);
     res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
   } catch (error) {
     console.error('Error deleting post:', error);
@@ -287,8 +286,12 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
   try {
     const post = await Post.findById(id);
+    const user = await User.findById(req.user.id);
     if (!post) {
       return res.status(404).send('Post not found');
+    }
+    if (!user) {
+      return res.status(404).send('User not found');
     }
 
     const userId = req.user.id;
@@ -298,13 +301,19 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
       post.likes.push(userId);
     }
 
+    if (user.likes.includes(id)) {
+      user.likes.pull(id);
+    } else {
+      user.likes.push(id);
+    }
+
+    await user.save();
     await post.save();
     res.send(post);
   } catch (err) {
     res.status(500).send('Error liking/unliking post');
   }
 });
-
 
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -553,6 +562,41 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
     if (user) {
       // Fetch posts where author matches the user's ID
       const uploadedPosts = await Post.find({ author: user.id });
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+
+app.get('/uploaded-content', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+app.get('/public-uploaded-content/:username', async (req, res) => {
+  try {
+    const username = req.params.username;
+    const user = await User.findOne({ username });
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
       res.json(uploadedPosts);
     } else {
       res.status(404).send('User not found');
@@ -580,7 +624,6 @@ app.get('/favorite-content', authenticateToken, async (req, res) => {
   }
 });
 
-
 //return the save post(personal-area)
 app.get('/saved-content', authenticateToken, async (req, res) => {
   try {
@@ -601,6 +644,20 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
 });
+
+
+app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
+  // Handle removal of uploaded content
+  res.send('Uploaded content removed');
+});
+
+
+
+
+
+
+
+
 
 
 
