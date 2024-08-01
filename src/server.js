@@ -203,7 +203,6 @@ app.get('/feed', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
@@ -222,9 +221,6 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     res.status(500).send('Error creating post');
   }
 });
-
-
-
 
 app.put('/posts/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -262,21 +258,6 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
     res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
   } catch (error) {
     console.error('Error deleting post:', error);
-    res.status(500).send('Server error');
-  }
-});
-
-
-app.post('/posts/:id/unlike', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const post = await Post.findById(id);
-    if (!post) return res.status(404).send('Post not found');
-    post.likes = post.likes.filter(userId => userId.toString() !== req.user.id);
-    await post.save();
-    res.status(200).send(post);
-  } catch (err) {
-    console.error('Error unliking post:', err);
     res.status(500).send('Server error');
   }
 });
@@ -321,9 +302,7 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
 
   try {
     const originalPost = await Post.findById(id);
-    if (!originalPost) {
-      return res.status(404).send('Post not found');
-    }
+    if (!originalPost) return res.status(404).send('Post not found');
 
     // הוספת השיתוף החדש לרשימת השיתופים של הפוסט המקורי
     originalPost.shares.push({
@@ -340,20 +319,45 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
     await user.save();
     res.status(200).send(originalPost);
   } catch (err) {
-    res.status(500).send('Error sharing post');
+    res.status(500).send('Server error');
   }
 });
 
+app.post('/posts/:id/unshare', authenticateToken, async (req, res) => {
+  const { id } = req.params;
 
+  try {
+    const originalPost = await Post.findById(id);
+    if (!originalPost) return res.status(404).send('Post not found');
+
+    // חיפוש השיתוף של המשתמש בפוסט המקורי
+    const shareIndex = originalPost.shares.findIndex(share => share.user.equals(req.user.id));
+    if (shareIndex === -1) return res.status(400).send('Share not found');
+
+    // הסרת השיתוף מהפוסט המקורי
+    originalPost.shares.splice(shareIndex, 1);
+
+    // עדכון מספר השיתופים בפוסט המקורי
+    originalPost.shareCount = (originalPost.shareCount || 0) - 1;
+
+    // הסרת מזהה הפוסט ששיתף מרשימת השיתופים של המשתמש
+    const user = await User.findById(req.user.id);
+    user.shares = user.shares.filter(postId => postId.toString() !== id);
+
+    await originalPost.save();
+    await user.save();
+    res.status(200).send(originalPost);
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
 
 app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const post = await Post.findById(id);
-    if (!post) {
-      return res.status(404).send('Post not found');
-    }
+    if (!post) return res.status(404).send('Post not found');
 
     // הוספת מזהה הפוסט לרשימת השמירות של המשתמש
     const user = await User.findById(req.user.id);
@@ -371,6 +375,27 @@ app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/posts/:id/save', async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // בדוק אם הפוסט כבר שמור אצל המשתמש
+   
+      user.savedPosts.push(postId);
+      await user.save();
+      return res.status(200).json({ message: 'Post saved successfully' });
+    
+  } catch (error) {
+    console.error('Error saving post:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 
 
@@ -573,40 +598,6 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
 });
 
 
-app.get('/uploaded-content', authenticateToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (user) {
-      // Fetch posts where author matches the user's ID
-      const uploadedPosts = await Post.find({ author: user.id });
-
-      res.json(uploadedPosts);
-    } else {
-      res.status(404).send('User not found');
-    }
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-app.get('/public-uploaded-content/:username', async (req, res) => {
-  try {
-    const username = req.params.username;
-    const user = await User.findOne({ username });
-    if (user) {
-      // Fetch posts where author matches the user's ID
-      const uploadedPosts = await Post.find({ author: user.id });
-
-      res.json(uploadedPosts);
-    } else {
-      res.status(404).send('User not found');
-    }
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-
 //return the favorite post(personal-area)
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
@@ -649,17 +640,6 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
 });
-
-
-
-
-
-
-
-
-
-
-
 
 app.get('/about', (req, res) => {
   const aboutContent = {
