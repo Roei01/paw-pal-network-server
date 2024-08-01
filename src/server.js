@@ -563,6 +563,41 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
 });
 
 
+app.get('/uploaded-content', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+app.get('/public-uploaded-content/:username', async (req, res) => {
+  try {
+    const username = req.params.username;
+    const user = await User.findOne({ username });
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+
+
 //return the favorite post(personal-area)
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
