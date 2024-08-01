@@ -203,6 +203,7 @@ app.get('/feed', authenticateToken, async (req, res) => {
   }
 });
 
+
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
   const { description } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
@@ -221,6 +222,7 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     res.status(500).send('Error creating post');
   }
 });
+
 
 
 
@@ -284,8 +286,12 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
   try {
     const post = await Post.findById(id);
+    const user = await User.findById(req.user.id);
     if (!post) {
       return res.status(404).send('Post not found');
+    }
+    if (!user) {
+      return res.status(404).send('User not found');
     }
 
     const userId = req.user.id;
@@ -295,6 +301,13 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
       post.likes.push(userId);
     }
 
+    if (user.likes.includes(id)) {
+      user.likes.pull(id);
+    } else {
+      user.likes.push(id);
+    }
+
+    await user.save();
     await post.save();
     res.send(post);
   } catch (err) {
@@ -302,14 +315,15 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { text } = req.body; // הנחת שיש תגובה ב-body של הבקשה
 
   try {
     const originalPost = await Post.findById(id);
-    if (!originalPost) return res.status(404).send('Post not found');
+    if (!originalPost) {
+      return res.status(404).send('Post not found');
+    }
 
     // הוספת השיתוף החדש לרשימת השיתופים של הפוסט המקורי
     originalPost.shares.push({
@@ -326,7 +340,7 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
     await user.save();
     res.status(200).send(originalPost);
   } catch (err) {
-    res.status(500).send('Server error');
+    res.status(500).send('Error sharing post');
   }
 });
 
@@ -337,7 +351,9 @@ app.post('/posts/:id/save', authenticateToken, async (req, res) => {
 
   try {
     const post = await Post.findById(id);
-    if (!post) return res.status(404).send('Post not found');
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
 
     // הוספת מזהה הפוסט לרשימת השמירות של המשתמש
     const user = await User.findById(req.user.id);
@@ -355,27 +371,6 @@ app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/posts/:id/save', async (req, res) => {
-  try {
-    const postId = req.params.id;
-    const userId = req.user.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // בדוק אם הפוסט כבר שמור אצל המשתמש
-   
-      user.savedPosts.push(postId);
-      await user.save();
-      return res.status(200).json({ message: 'Post saved successfully' });
-    
-  } catch (error) {
-    console.error('Error saving post:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
 
 
 
@@ -564,6 +559,40 @@ app.get('/current-user-following', authenticateToken, async (req, res) => {
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+
+app.get('/uploaded-content', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+app.get('/public-uploaded-content/:username', async (req, res) => {
+  try {
+    const username = req.params.username;
+    const user = await User.findOne({ username });
     if (user) {
       // Fetch posts where author matches the user's ID
       const uploadedPosts = await Post.find({ author: user.id });
