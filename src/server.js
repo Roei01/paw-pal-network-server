@@ -259,7 +259,6 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
     }
 
     await Post.findByIdAndDelete(postId);
-    console.log(`Post ${postId} deleted successfully`);
     res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
   } catch (error) {
     console.error('Error deleting post:', error);
@@ -554,7 +553,22 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
       // Fetch posts where author matches the user's ID
       const uploadedPosts = await Post.find({ author: user.id });
 
-      console.log(uploadedPosts);
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+
+app.get('/uploaded-content', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
 
       res.json(uploadedPosts);
     } else {
@@ -564,6 +578,24 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get('/public-uploaded-content/:username', async (req, res) => {
+  try {
+    const username = req.params.username;
+    const user = await User.findOne({ username });
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+
+      res.json(uploadedPosts);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
 
 
 //return the favorite post(personal-area)
@@ -588,9 +620,7 @@ app.get('/saved-content', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (user) {
       const savedPostIds = user.savedPosts;
-      console.log(savedPostIds);
       const savedPosts = await Post.find({ _id: { $in: savedPostIds } });
-      console.log(savedPosts);
       res.json(savedPosts);
     } else {
       res.status(404).send('User not found');
