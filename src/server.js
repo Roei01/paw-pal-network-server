@@ -189,12 +189,13 @@ app.get('/feed', authenticateToken, async (req, res) => {
         }
         imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
       }
-
+      
       return {
         ...post._doc,
         image: imageUrl
       };
     });
+    console.log(postsWithImages);
 
     res.json(postsWithImages);
   } catch (err) {
@@ -573,6 +574,7 @@ app.get('/share', authenticateToken, async (req, res) => {
           if (share.user.toString() === user.id.toString()) {
             userShares.push({
               ...post.toObject(), // Convert Mongoose document to plain object
+              description: `Shared Post: ${post.description}`, // Add "Shared Post" text
               sharedText: share.text,
               sharedAt: share.createdAt,
               sharedBy: {
@@ -619,8 +621,11 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
     if (user) {
       // Fetch posts where author matches the user's ID
       const uploadedPosts = await Post.find({ author: user.id });
-
+      
+      console.log(uploadedPosts);
       res.json(uploadedPosts);
+
+      
     } else {
       res.status(404).send('User not found');
     }
