@@ -52,7 +52,8 @@ const UserSchema = new mongoose.Schema({
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
-  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // עדכון הסכמה לשמור מזהי פוסטים
+  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // עדכון הסכמה לשמור מזהי פוסטים
+  pet: { type: String },
 });
 
 const PostSchema = new mongoose.Schema({
@@ -670,6 +671,29 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
   }
 });
 
+// נתיב לעדכון פרטי המשתמש
+app.put('/user-details', authenticateToken, async (req, res) => {
+  const { firstName, lastName, email, dateOfBirth } = req.body;
+  
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // עדכון הפרטים החדשים
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.email = email || user.email;
+    user.dateOfBirth = dateOfBirth || user.dateOfBirth;
+
+    await user.save();
+    res.status(200).send('User details updated successfully');
+  } catch (err) {
+    console.error('Error updating user details:', err);
+    res.status(500).send('Error updating user details');
+  }
+});
 
 
 //return the favorite post(personal-area)
