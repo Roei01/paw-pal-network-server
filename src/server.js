@@ -673,7 +673,7 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
 
 // נתיב לעדכון פרטי המשתמש
 app.put('/user-details', authenticateToken, async (req, res) => {
-  const { firstName, lastName, email, dateOfBirth } = req.body;
+  const { firstName, lastName, email, dateOfBirth, pet} = req.body;
   
   try {
     const user = await User.findById(req.user.id);
@@ -686,7 +686,7 @@ app.put('/user-details', authenticateToken, async (req, res) => {
     user.lastName = lastName || user.lastName;
     user.email = email || user.email;
     user.dateOfBirth = dateOfBirth || user.dateOfBirth;
-
+    user.pet= pet|| user.pet;
     await user.save();
     res.status(200).send('User details updated successfully');
   } catch (err) {
