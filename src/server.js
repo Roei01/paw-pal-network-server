@@ -189,12 +189,13 @@ app.get('/feed', authenticateToken, async (req, res) => {
         }
         imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
       }
-
+      
       return {
         ...post._doc,
         image: imageUrl
       };
     });
+    console.log(postsWithImages);
 
     res.json(postsWithImages);
   } catch (err) {
@@ -355,23 +356,28 @@ app.post('/posts/:id/unshare', authenticateToken, async (req, res) => {
 app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
-  try {
+try {
     const post = await Post.findById(id);
-    if (!post) return res.status(404).send('Post not found');
-
-    // הוספת מזהה הפוסט לרשימת השמירות של המשתמש
     const user = await User.findById(req.user.id);
-    if (!user.savedPosts.includes(id)) {
-      user.savedPosts.push(id);
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const userId = req.user.id;
+
+    if (user.savedPosts.includes(id)) {
+      user.savedPosts.pull(id);
     } else {
-      return res.status(400).send('Post already saved');
+      user.savedPosts.push(id);
     }
 
     await user.save();
-    res.status(200).send(user);
+    res.send(post);
   } catch (err) {
-    console.error('Error saving post:', err);
-    res.status(500).send('Error saving post');
+    res.status(500).send('Error liking/unliking post');
   }
 });
 
@@ -581,6 +587,44 @@ app.get('/current-user-following', authenticateToken, async (req, res) => {
 
 
 //return the uploaded post(personal-area)
+app.get('/share', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where the user has shared them
+      const sharePosts = await Post.find({ 'shares.user': user.id }).populate('author', 'username firstName lastName');
+
+      // Prepare array of shared posts with additional information
+      const userShares = [];
+      sharePosts.forEach(post => {
+        post.shares.forEach(share => {
+          if (share.user.toString() === user.id.toString()) {
+            userShares.push({
+              ...post.toObject(), // Convert Mongoose document to plain object
+              description: `Shared Post: ${post.description}`, // Add "Shared Post" text
+              sharedText: share.text,
+              sharedAt: share.createdAt,
+              sharedBy: {
+                firstName: user.firstName,
+                lastName: user.lastName
+              }
+            });
+          }
+        });
+      });
+
+      res.json(userShares);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    console.error('Error fetching shared posts:', error);
+    res.status(500).send(error.message);
+  }
+});
+
+
+
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -596,6 +640,27 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get('/public-uploaded-content/:username', async (req, res) => {
+  try {
+    const username = req.params.username;
+    const user = await User.findOne({ username });
+    if (user) {
+      // Fetch posts where author matches the user's ID
+      const uploadedPosts = await Post.find({ author: user.id });
+      
+      console.log(uploadedPosts);
+      res.json(uploadedPosts);
+
+      
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
 
 
 //return the favorite post(personal-area)
@@ -640,6 +705,9 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
 });
+
+
+
 
 app.get('/about', (req, res) => {
   const aboutContent = {
