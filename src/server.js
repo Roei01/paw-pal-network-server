@@ -11,13 +11,10 @@ import nodemailer from 'nodemailer';
 const app = express();
 const port = process.env.PORT || 3000;
 
-
-// CORS options
 const corsOptions = {
-  origin: 'https://paw-pal-network-client.onrender.com',
+  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200,
 };
-
 
 // Configure your email service
 const transporter = nodemailer.createTransport({
@@ -34,10 +31,13 @@ app.use(cors(corsOptions));
 app.use('/uploads', express.static('uploads'));
 
 // MongoDB connection
-const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlas'))
-  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
+mongoose.connect('mongodb://localhost:27017/pawpal-network')
+  .then(() => {
+    console.log('MongoDB connected');
+  })
+  .catch((err) => {
+    console.error(err);
+  });
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -173,9 +173,10 @@ app.get('/feed', authenticateToken, async (req, res) => {
     const posts = await Post.find({
       $or: [
         { author: { $in: followingIds } },
-        { author: user._id }
+        { author: user._id },
+        { 'shares.user': { $in: followingIds } }
       ]
-    }).populate('author', 'username firstName lastName');
+    }).populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName');
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
     const postsWithImages = posts.map(post => {
@@ -189,12 +190,13 @@ app.get('/feed', authenticateToken, async (req, res) => {
         }
         imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
       }
-
+      
       return {
         ...post._doc,
         image: imageUrl
       };
     });
+    console.log(postsWithImages);
 
     res.json(postsWithImages);
   } catch (err) {
@@ -249,8 +251,6 @@ app.put('/posts/:id', authenticateToken, async (req, res) => {
     res.status(500).send('Error updating post');
   }
 });
-
-
 app.delete('/posts/:id', authenticateToken, async (req, res) => {
   try {
     const postId = req.params.id;
@@ -269,8 +269,21 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
 });
 
 
+app.post('/posts/:id/unlike', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).send('Post not found');
+    post.likes = post.likes.filter(userId => userId.toString() !== req.user.id);
+    await post.save();
+    res.status(200).send(post);
+  } catch (err) {
+    console.error('Error unliking post:', err);
+    res.status(500).send('Server error');
+  }
+});
 
-app.post('/posts/:id/like', authenticateToken, async (req, res) => {   //like and unlike
+app.post('/posts/:id/like', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -323,17 +336,8 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
 
     // הוספת מזהה הפוסט ששיתף לרשימת השיתופים של המשתמש
     const user = await User.findById(req.user.id);
-    if (post.shares.includes(userId)) {
-      post.shares.pull(userId);
-    } else {
-      post.shares.push(userId);
-    }
+    user.shares.push(id);
 
-    if (user.shares.includes(id)) {
-      user.shares.pull(id);
-    } else {
-      user.shares.push(id);
-    }
     await originalPost.save();
     await user.save();
     res.status(200).send(originalPost);
@@ -343,42 +347,32 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
 });
 
 
-app.post('/posts/:id/unsave', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const post = await Post.findById(id);
-    if (!post) return res.status(404).send('Post not found');
-    post.save = post.save.filter(userId => userId.toString() !== req.user.id);
-    await post.save();
-    res.status(200).send(post);
-  } catch (err) {
-    console.error('Error unsaving post:', err);
-    res.status(500).send('Server error');
-  }
-});
 
 app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
-  try {
+try {
     const post = await Post.findById(id);
+    const user = await User.findById(req.user.id);
     if (!post) {
       return res.status(404).send('Post not found');
     }
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
 
-    // הוספת מזהה הפוסט לרשימת השמירות של המשתמש
-    const user = await User.findById(req.user.id);
-    if (!user.savedPosts.includes(id)) {
-      user.savedPosts.push(id);
+    const userId = req.user.id;
+
+    if (user.savedPosts.includes(id)) {
+      user.savedPosts.pull(id);
     } else {
-      return res.status(400).send('Post already saved');
+      user.savedPosts.push(id);
     }
 
     await user.save();
-    res.status(200).send(user);
+    res.send(post);
   } catch (err) {
-    console.error('Error saving post:', err);
-    res.status(500).send('Error saving post');
+    res.status(500).send('Error liking/unliking post');
   }
 });
 
@@ -567,6 +561,76 @@ app.get('/current-user-following', authenticateToken, async (req, res) => {
 
 
 //return the uploaded post(personal-area)
+app.get('/share', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      // Fetch posts where the user has shared them
+      const sharePosts = await Post.find({ 'shares.user': user.id }).populate('author', 'username firstName lastName');
+
+      // Prepare array of shared posts with additional information
+      const userShares = [];
+      sharePosts.forEach(post => {
+        post.shares.forEach(share => {
+          if (share.user.toString() === user.id.toString()) {
+            userShares.push({
+              ...post.toObject(), // Convert Mongoose document to plain object
+              description: `Shared Post: ${post.description}`, // Add "Shared Post" text
+              sharedText: share.text,
+              sharedAt: share.createdAt,
+              sharedBy: {
+                firstName: user.firstName,
+                lastName: user.lastName
+              }
+            });
+          }
+        });
+      });
+
+      res.json(userShares);
+    } else {
+      res.status(404).send('User not found');
+    }
+  } catch (error) {
+    console.error('Error fetching shared posts:', error);
+    res.status(500).send(error.message);
+  }
+});
+
+// פונקציה חדשה להסרת שיתוף
+app.delete('/Unshare/:postId/:userId/:createdAt', authenticateToken, async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    const userId = req.params.userId;
+    const createdAt = new Date(req.params.createdAt);
+    const currentUserId = req.user.id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
+
+    // מציאת השיתוף הספציפי והסרתו
+    const shareIndex = post.shares.findIndex(share => share.user.toString() === userId && new Date(share.createdAt).getTime() === createdAt.getTime());
+    if (shareIndex === -1) {
+      return res.status(404).send('Share not found');
+    }
+
+    post.shares.splice(shareIndex, 1);
+    await post.save();
+
+    // הסרת מזהה השיתוף מרשימת השיתופים של המשתמש
+    const user = await User.findById(currentUserId);
+    user.shares = user.shares.filter(userShareId => userShareId.toString() !== postId);
+    await user.save();
+
+    res.status(200).send({ message: 'Unshared post successfully' });
+  } catch (error) {
+    console.error('Error unsharing post:', error);
+    res.status(500).send('Server error');
+  }
+});
+
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -584,21 +648,6 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
 });
 
 
-app.get('/uploaded-content', authenticateToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (user) {
-      // Fetch posts where author matches the user's ID
-      const uploadedPosts = await Post.find({ author: user.id });
-
-      res.json(uploadedPosts);
-    } else {
-      res.status(404).send('User not found');
-    }
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
 
 app.get('/public-uploaded-content/:username', async (req, res) => {
   try {
@@ -607,8 +656,11 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
     if (user) {
       // Fetch posts where author matches the user's ID
       const uploadedPosts = await Post.find({ author: user.id });
-
+      
+      console.log(uploadedPosts);
       res.json(uploadedPosts);
+
+      
     } else {
       res.status(404).send('User not found');
     }
@@ -661,14 +713,6 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
 });
-
-
-
-
-
-
-
-
 
 
 
