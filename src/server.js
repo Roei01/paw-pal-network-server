@@ -173,9 +173,10 @@ app.get('/feed', authenticateToken, async (req, res) => {
     const posts = await Post.find({
       $or: [
         { author: { $in: followingIds } },
-        { author: user._id }
+        { author: user._id },
+        { 'shares.user': { $in: followingIds } }
       ]
-    }).populate('author', 'username firstName lastName');
+    }).populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName');
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
     const postsWithImages = posts.map(post => {
@@ -596,7 +597,39 @@ app.get('/share', authenticateToken, async (req, res) => {
   }
 });
 
+// פונקציה חדשה להסרת שיתוף
+app.delete('/Unshare/:postId/:userId/:createdAt', authenticateToken, async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    const userId = req.params.userId;
+    const createdAt = new Date(req.params.createdAt);
+    const currentUserId = req.user.id;
 
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
+
+    // מציאת השיתוף הספציפי והסרתו
+    const shareIndex = post.shares.findIndex(share => share.user.toString() === userId && new Date(share.createdAt).getTime() === createdAt.getTime());
+    if (shareIndex === -1) {
+      return res.status(404).send('Share not found');
+    }
+
+    post.shares.splice(shareIndex, 1);
+    await post.save();
+
+    // הסרת מזהה השיתוף מרשימת השיתופים של המשתמש
+    const user = await User.findById(currentUserId);
+    user.shares = user.shares.filter(userShareId => userShareId.toString() !== postId);
+    await user.save();
+
+    res.status(200).send({ message: 'Unshared post successfully' });
+  } catch (error) {
+    console.error('Error unsharing post:', error);
+    res.status(500).send('Server error');
+  }
+});
 
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
@@ -613,6 +646,8 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+
 
 app.get('/public-uploaded-content/:username', async (req, res) => {
   try {
