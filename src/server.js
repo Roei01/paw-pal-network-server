@@ -352,7 +352,7 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
 app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
-try {
+  try {
     const post = await Post.findById(id);
     const user = await User.findById(req.user.id);
     if (!post) {
