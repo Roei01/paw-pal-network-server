@@ -11,6 +11,7 @@ import nodemailer from 'nodemailer';
 const app = express();
 const port = process.env.PORT || 3000;
 
+
 const corsOptions = {
   origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200,
@@ -39,6 +40,7 @@ mongoose.connect('mongodb://localhost:27017/pawpal-network')
     console.error(err);
   });
 
+
 // Models
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -51,7 +53,8 @@ const UserSchema = new mongoose.Schema({
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
-  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // עדכון הסכמה לשמור מזהי פוסטים
+  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // עדכון הסכמה לשמור מזהי פוסטים
+  pet: { type: String },
 });
 
 const PostSchema = new mongoose.Schema({
@@ -351,7 +354,7 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
 app.post('/posts/:id/save', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
-try {
+  try {
     const post = await Post.findById(id);
     const user = await User.findById(req.user.id);
     if (!post) {
@@ -669,6 +672,29 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
   }
 });
 
+// נתיב לעדכון פרטי המשתמש
+app.put('/user-details', authenticateToken, async (req, res) => {
+  const { firstName, lastName, email, dateOfBirth, pet} = req.body;
+  
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // עדכון הפרטים החדשים
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.email = email || user.email;
+    user.dateOfBirth = dateOfBirth || user.dateOfBirth;
+    user.pet= pet|| user.pet;
+    await user.save();
+    res.status(200).send('User details updated successfully');
+  } catch (err) {
+    console.error('Error updating user details:', err);
+    res.status(500).send('Error updating user details');
+  }
+});
 
 
 //return the favorite post(personal-area)
