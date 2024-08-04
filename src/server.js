@@ -725,13 +725,30 @@ app.put('/user-details', authenticateToken, async (req, res) => {
 
 
 //return the favorite post(personal-area)
+// Return favorite posts with proper image URLs
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (user) {
       const favoritePostIds = user.likes;
       const favoritePosts = await Post.find({ _id: { $in: favoritePostIds } });
-      res.json(favoritePosts);
+
+      const postsWithImages = favoritePosts.map(post => {
+        let imageUrl = null;
+        if (post.image) {
+          let imagePath = post.image.replace(/\\/g, '/');
+          if (!imagePath.startsWith('/')) {
+            imagePath = '/' + imagePath;
+          }
+          imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+        }
+        return {
+          ...post._doc,
+          image: imageUrl
+        };
+      });
+
+      res.json(postsWithImages);
     } else {
       res.status(404).send('User not found');
     }
@@ -740,14 +757,30 @@ app.get('/favorite-content', authenticateToken, async (req, res) => {
   }
 });
 
-//return the save post(personal-area)
+// Return saved posts with proper image URLs
 app.get('/saved-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (user) {
       const savedPostIds = user.savedPosts;
       const savedPosts = await Post.find({ _id: { $in: savedPostIds } });
-      res.json(savedPosts);
+
+      const postsWithImages = savedPosts.map(post => {
+        let imageUrl = null;
+        if (post.image) {
+          let imagePath = post.image.replace(/\\/g, '/');
+          if (!imagePath.startsWith('/')) {
+            imagePath = '/' + imagePath;
+          }
+          imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+        }
+        return {
+          ...post._doc,
+          image: imageUrl
+        };
+      });
+
+      res.json(postsWithImages);
     } else {
       res.status(404).send('User not found');
     }
