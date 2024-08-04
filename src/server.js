@@ -199,7 +199,6 @@ app.get('/feed', authenticateToken, async (req, res) => {
         image: imageUrl
       };
     });
-    console.log(postsWithImages);
 
     res.json(postsWithImages);
   } catch (err) {
@@ -655,7 +654,6 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
         };
       });
 
-      console.log(postsWithImages);
       res.json(postsWithImages);
     } else {
       res.status(404).send('User not found');
@@ -689,7 +687,6 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
         };
       });
 
-      console.log(postsWithImages);
       res.json(postsWithImages);
     } else {
       res.status(404).send('User not found');
