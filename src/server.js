@@ -20,12 +20,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
-// CORS options
 const corsOptions = {
-  origin: 'https://paw-pal-network-client.onrender.com',
+  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200,
 };
-
 
 // Configure your email service
 const transporter = nodemailer.createTransport({
@@ -42,11 +40,13 @@ app.use(cors(corsOptions));
 app.use('/uploads', express.static('uploads'));
 
 // MongoDB connection
-const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlas'))
-  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
-
+mongoose.connect('mongodb://localhost:27017/pawpal-network')
+  .then(() => {
+    console.log('MongoDB connected');
+  })
+  .catch((err) => {
+    console.error(err);
+  });
 
 
 // Models
@@ -271,14 +271,10 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
-    // Log the post image path for debugging
-    console.log('Post image path:', post.image);
-
     // Delete the image file if it exists
     if (post.image) {
       const imagePath = path.join(__dirname, '..', 'uploads', path.basename(post.image));
       // Log the constructed image path for debugging
-      console.log('Constructed image path:', imagePath);
 
       try {
         await unlinkFile(imagePath);
