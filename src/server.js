@@ -5,11 +5,19 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import path from 'path';
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import util from 'util';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 
 const corsOptions = {
@@ -92,6 +100,7 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage });
+const unlinkFile = util.promisify(fs.unlink); //help to remove files
 
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
@@ -262,8 +271,25 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
+    // Log the post image path for debugging
+    console.log('Post image path:', post.image);
+
+    // Delete the image file if it exists
+    if (post.image) {
+      const imagePath = path.join(__dirname, '..', 'uploads', path.basename(post.image));
+      // Log the constructed image path for debugging
+      console.log('Constructed image path:', imagePath);
+
+      try {
+        await unlinkFile(imagePath);
+      } catch (error) {
+        console.error('Error deleting image file:', error);
+        // Continue to delete the post even if the image deletion fails
+      }
+    }
+
     await Post.findByIdAndDelete(postId);
-    res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
+    res.status(200).json({ message: 'Post and image deleted successfully' });
   } catch (error) {
     console.error('Error deleting post:', error);
     res.status(500).send('Server error');
