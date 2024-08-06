@@ -205,7 +205,9 @@ app.get('/feed', authenticateToken, async (req, res) => {
       
       return {
         ...post._doc,
-        image: imageUrl
+        image: imageUrl,
+        liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
+        saved: user.savedPosts.includes(post._id) // האם המשתמש שמר את הפוסט
       };
     });
 
@@ -327,8 +329,10 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     if (post.likes.includes(userId)) {
       post.likes.pull(userId);
+      post.liked = false;
     } else {
       post.likes.push(userId);
+      post.liked = true;
     }
 
     if (user.likes.includes(id)) {
