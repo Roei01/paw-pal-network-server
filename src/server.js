@@ -5,11 +5,20 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import path from 'path';
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import util from 'util';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 const corsOptions = {
   origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
@@ -29,6 +38,8 @@ const transporter = nodemailer.createTransport({
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
 app.use('/uploads', express.static('uploads'));
+const mailIconPath = path.join(__dirname, '..', 'image', 'mail.png');
+
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/pawpal-network')
@@ -38,6 +49,7 @@ mongoose.connect('mongodb://localhost:27017/pawpal-network')
   .catch((err) => {
     console.error(err);
   });
+
 
 // Models
 const UserSchema = new mongoose.Schema({
@@ -51,7 +63,8 @@ const UserSchema = new mongoose.Schema({
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
-  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // עדכון הסכמה לשמור מזהי פוסטים
+  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // עדכון הסכמה לשמור מזהי פוסטים
+  pet: { type: String },
 });
 
 const PostSchema = new mongoose.Schema({
@@ -89,6 +102,7 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage });
+const unlinkFile = util.promisify(fs.unlink); //help to remove files
 
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
@@ -173,9 +187,10 @@ app.get('/feed', authenticateToken, async (req, res) => {
     const posts = await Post.find({
       $or: [
         { author: { $in: followingIds } },
-        { author: user._id }
+        { author: user._id },
+        { 'shares.user': { $in: followingIds } }
       ]
-    }).populate('author', 'username firstName lastName');
+    }).populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName');
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
     const postsWithImages = posts.map(post => {
@@ -192,7 +207,9 @@ app.get('/feed', authenticateToken, async (req, res) => {
       
       return {
         ...post._doc,
-        image: imageUrl
+        image: imageUrl,
+        liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
+        saved: user.savedPosts.includes(post._id) // האם המשתמש שמר את הפוסט
       };
     });
     console.log(postsWithImages);
@@ -255,8 +272,25 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
+    // Log the post image path for debugging
+    console.log('Post image path:', post.image);
+
+    // Delete the image file if it exists
+    if (post.image) {
+      const imagePath = path.join(__dirname, '..', 'uploads', path.basename(post.image));
+      // Log the constructed image path for debugging
+      console.log('Constructed image path:', imagePath);
+
+      try {
+        await unlinkFile(imagePath);
+      } catch (error) {
+        console.error('Error deleting image file:', error);
+        // Continue to delete the post even if the image deletion fails
+      }
+    }
+
     await Post.findByIdAndDelete(postId);
-    res.status(200).json({ message: 'Post deleted successfully' }); // החזר תגובה בפורמט JSON
+    res.status(200).json({ message: 'Post and image deleted successfully' });
   } catch (error) {
     console.error('Error deleting post:', error);
     res.status(500).send('Server error');
@@ -279,8 +313,10 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     if (post.likes.includes(userId)) {
       post.likes.pull(userId);
+      post.liked = false;
     } else {
       post.likes.push(userId);
+      post.liked = true;
     }
 
     if (user.likes.includes(id)) {
@@ -623,16 +659,62 @@ app.get('/share', authenticateToken, async (req, res) => {
   }
 });
 
+// פונקציה חדשה להסרת שיתוף
+app.delete('/Unshare/:postId/:userId/:createdAt', authenticateToken, async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    const userId = req.params.userId;
+    const createdAt = new Date(req.params.createdAt);
+    const currentUserId = req.user.id;
 
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
+
+    // מציאת השיתוף הספציפי והסרתו
+    const shareIndex = post.shares.findIndex(share => share.user.toString() === userId && new Date(share.createdAt).getTime() === createdAt.getTime());
+    if (shareIndex === -1) {
+      return res.status(404).send('Share not found');
+    }
+
+    post.shares.splice(shareIndex, 1);
+    await post.save();
+
+    // הסרת מזהה השיתוף מרשימת השיתופים של המשתמש
+    const user = await User.findById(currentUserId);
+    user.shares = user.shares.filter(userShareId => userShareId.toString() !== postId);
+    await user.save();
+
+    res.status(200).send({ message: 'Unshared post successfully' });
+  } catch (error) {
+    console.error('Error unsharing post:', error);
+    res.status(500).send('Server error');
+  }
+});
 
 app.get('/uploaded-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (user) {
-      // Fetch posts where author matches the user's ID
       const uploadedPosts = await Post.find({ author: user.id });
 
-      res.json(uploadedPosts);
+      const postsWithImages = uploadedPosts.map(post => {
+        let imageUrl = null;
+        if (post.image) {
+          let imagePath = post.image.replace(/\\/g, '/');
+          if (!imagePath.startsWith('/')) {
+            imagePath = '/' + imagePath;
+          }
+          imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+        }
+        return {
+          ...post._doc,
+          image: imageUrl
+        };
+      });
+
+      res.json(postsWithImages);
     } else {
       res.status(404).send('User not found');
     }
@@ -640,19 +722,32 @@ app.get('/uploaded-content', authenticateToken, async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+
 
 app.get('/public-uploaded-content/:username', async (req, res) => {
   try {
     const username = req.params.username;
     const user = await User.findOne({ username });
     if (user) {
-      // Fetch posts where author matches the user's ID
       const uploadedPosts = await Post.find({ author: user.id });
-      
-      console.log(uploadedPosts);
-      res.json(uploadedPosts);
 
-      
+      const postsWithImages = uploadedPosts.map(post => {
+        let imageUrl = null;
+        if (post.image) {
+          let imagePath = post.image.replace(/\\/g, '/');
+          if (!imagePath.startsWith('/')) {
+            imagePath = '/' + imagePath;
+          }
+          imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+        }
+        return {
+          ...post._doc,
+          image: imageUrl
+        };
+      });
+
+      res.json(postsWithImages);
     } else {
       res.status(404).send('User not found');
     }
@@ -661,16 +756,57 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
   }
 });
 
+// נתיב לעדכון פרטי המשתמש
+app.put('/user-details', authenticateToken, async (req, res) => {
+  const { firstName, lastName, email, dateOfBirth, pet} = req.body;
+  
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // עדכון הפרטים החדשים
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.email = email || user.email;
+    user.dateOfBirth = dateOfBirth || user.dateOfBirth;
+    user.pet= pet|| user.pet;
+    await user.save();
+    res.status(200).send('User details updated successfully');
+  } catch (err) {
+    console.error('Error updating user details:', err);
+    res.status(500).send('Error updating user details');
+  }
+});
 
 
 //return the favorite post(personal-area)
+// Return favorite posts with proper image URLs
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const username = req.params.username;
+    const user = await User.findOne({ username });
     if (user) {
       const favoritePostIds = user.likes;
       const favoritePosts = await Post.find({ _id: { $in: favoritePostIds } });
-      res.json(favoritePosts);
+
+      const postsWithImages = favoritePosts.map(post => {
+        let imageUrl = null;
+        if (post.image) {
+          let imagePath = post.image.replace(/\\/g, '/');
+          if (!imagePath.startsWith('/')) {
+            imagePath = '/' + imagePath;
+          }
+          imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+        }
+        return {
+          ...post._doc,
+          image: imageUrl
+        };
+      });
+
+      res.json(postsWithImages);
     } else {
       res.status(404).send('User not found');
     }
@@ -679,14 +815,30 @@ app.get('/favorite-content', authenticateToken, async (req, res) => {
   }
 });
 
-//return the save post(personal-area)
+// Return saved posts with proper image URLs
 app.get('/saved-content', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (user) {
       const savedPostIds = user.savedPosts;
       const savedPosts = await Post.find({ _id: { $in: savedPostIds } });
-      res.json(savedPosts);
+
+      const postsWithImages = savedPosts.map(post => {
+        let imageUrl = null;
+        if (post.image) {
+          let imagePath = post.image.replace(/\\/g, '/');
+          if (!imagePath.startsWith('/')) {
+            imagePath = '/' + imagePath;
+          }
+          imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+        }
+        return {
+          ...post._doc,
+          image: imageUrl
+        };
+      });
+
+      res.json(postsWithImages);
     } else {
       res.status(404).send('User not found');
     }
@@ -726,18 +878,33 @@ app.post('/contact', async (req, res) => {
     to: 'roeina@ac.sce.ac.il, tamirbe2@ac.sce.ac.il, nirag@ac.sce.ac.il, neriaat@ac.sce.ac.il, avirabe5@ac.sce.ac.il, eladge1@ac.sce.ac.il, idanya@ac.sce.ac.il',
     subject: `New message from ${name}`,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-        <h2 style="text-align: center; color: #333;">New Message from ${name}</h2>
-        <p style="font-size: 16px; color: #555;">You have received a new message through the contact form on your website:</p>
-        <p style="font-size: 16px; color: #555;"><strong>Name:</strong> ${name}</p>
-        <p style="font-size: 16px; color: #555;"><strong>Email:</strong> ${email}</p>
-        <p style="font-size: 16px; color: #555;"><strong>Message:</strong></p>
-        <p style="font-size: 16px; color: #555; background: #f9f9f9; padding: 10px; border-radius: 5px;">${message}</p>
-        <p style="text-align: center; margin-top: 20px; font-size: 14px; color: #999;">This is an automated message. Please do not reply directly to this email.</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); background: #ffffff;">
+        <div style="text-align: center; background: #bebebe; padding: 20px; border-radius: 10px 10px 0 0;">
+          <img src="cid:mailIcon" alt="Mail Icon" style="width: 50px; height: 50px; display: block; margin: 0 auto;">
+          <h2 style="color: #ffffff;">New Message from ${name}</h2>
+        </div>
+        <div style="padding: 20px;">
+          <p style="font-size: 16px; color: #555;">You have received a new message through the contact form on your website:</p>
+          <p style="font-size: 16px; color: #555;"><strong>Name:</strong> ${name}</p>
+          <p style="font-size: 16px; color: #555;"><strong>Email:</strong> ${email}</p>
+          <p style="font-size: 16px; color: #555;"><strong>Message:</strong></p>
+          <p style="font-size: 16px; color: #555; background: #f9f9f9; padding: 10px; border-radius: 5px;">${message}</p>
+        </div>
+        <div style="text-align: center; padding: 20px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 14px; color: #999;">This is an automated message. Please do not reply directly to this email.</p>
+        </div>
       </div>
-    `
+    `,
+    attachments: [
+      {
+        filename: 'mail.png',
+        path: mailIconPath,
+        cid: 'mailIcon' // same cid value as in the html img src
+      }
+    ]
   };
-
+  
+  
   try {
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: 'Message received' });
