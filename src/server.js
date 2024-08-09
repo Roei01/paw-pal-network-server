@@ -607,6 +607,15 @@ app.get('/share', authenticateToken, async (req, res) => {
       sharePosts.forEach(post => {
         post.shares.forEach(share => {
           if (share.user.toString() === user.id.toString()) {
+            let imageUrl = null;
+            if (post.image) {
+              let imagePath = post.image.replace(/\\/g, '/');
+              if (!imagePath.startsWith('/')) {
+                imagePath = '/' + imagePath;
+              }
+              imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+            }
+
             userShares.push({
               ...post.toObject(), // Convert Mongoose document to plain object
               description: `Shared Post: ${post.description}`, // Add "Shared Post" text
@@ -614,8 +623,9 @@ app.get('/share', authenticateToken, async (req, res) => {
               sharedAt: share.createdAt,
               sharedBy: {
                 firstName: user.firstName,
-                lastName: user.lastName
-              }
+                lastName: user.lastName,
+              },
+              image: imageUrl // הוספת כתובת התמונה אם קיימת
             });
           }
         });
