@@ -39,17 +39,14 @@ app.use(bodyParser.json());
 app.use(cors(corsOptions));
 app.use('/uploads', express.static('uploads'));
 
-// MongoDB connection
-mongoose.connect('mongodb://localhost:27017/pawpal-network')
-  .then(() => {
-    console.log('MongoDB connected');
-  })
-  .catch((err) => {
-    console.error(err);
-  });
-
 
 // Models
+const InterestSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  category: { type: String, required: true },
+  connectedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }]  // Array of connected posts
+});
+
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   firstName: { type: String, required: true },
@@ -63,6 +60,7 @@ const UserSchema = new mongoose.Schema({
   savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
   shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // עדכון הסכמה לשמור מזהי פוסטים
   pet: { type: String },
+  followingInterests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Interest' }]  // Array of interests the user follows
 });
 
 const PostSchema = new mongoose.Schema({
@@ -76,7 +74,8 @@ const PostSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     text: String,
     createdAt: { type: Date, default: Date.now }
-  }]
+  }],
+  interests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Interest' }] 
 });
 
 const Schema = mongoose.Schema;
@@ -89,6 +88,7 @@ const SavePostSchema = new Schema({
 
 const User = mongoose.model('User', UserSchema);
 const Post = mongoose.model('Post', PostSchema);
+const Interest = mongoose.model('Interest', InterestSchema);
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -868,6 +868,86 @@ app.get('/getUserDetails', (req, res) => {
   res.json(aboutContent);
 });
 
+const interestsData = [
+  { category: 'Dogs', name: 'Dogs Training tips and techniques' },
+  { category: 'Dogs', name: 'Dogs Nutrition and diet advice' },
+  { category: 'Dogs', name: 'Dogs Breed-specific care guides' },
+  { category: 'Dogs', name: 'Dogs Exercise and activity suggestions' },
+  { category: 'Dogs', name: 'Dogs Health and wellness information' },
+  { category: 'Cats', name: 'Cats Litter box training' },
+  { category: 'Cats', name: 'Cats Nutrition and feeding advice' },
+  { category: 'Cats', name: 'Cats Play and enrichment activities' },
+  { category: 'Cats', name: 'Cats Grooming and hygiene tips' },
+  { category: 'Cats', name: 'Cats Health and wellness information' },
+  { category: 'Fish', name: 'Fish Aquarium setup and maintenance' },
+  { category: 'Fish', name: 'Fish species compatibility' },
+  { category: 'Fish', name: 'Fish Feeding and nutrition' },
+  { category: 'Fish', name: 'Fish Water quality and filtration tips' },
+  { category: 'Fish', name: 'Fish Health and disease prevention' },
+  { category: 'Birds', name: 'Birds Cage setup and enrichment' },
+  { category: 'Birds', name: 'Birds Nutrition and feeding advice' },
+  { category: 'Birds', name: 'Birds Training and socialization tips' },
+  { category: 'Birds', name: 'Birds Health and wellness information' },
+  { category: 'Birds', name: 'Birds Species-specific care guides' },
+  { category: 'Hamsters', name: 'Hamsters Cage setup and bedding' },
+  { category: 'Hamsters', name: 'Hamsters Nutrition and feeding advice' },
+  { category: 'Hamsters', name: 'Hamsters Exercise and enrichment activities' },
+  { category: 'Hamsters', name: 'Hamsters Health and wellness information' },
+  { category: 'Hamsters', name: 'Hamsters Handling and socialization tips' },
+  { category: 'Rabbits', name: 'Rabbits Hutch and habitat setup' },
+  { category: 'Rabbits', name: 'Rabbits Nutrition and feeding advice' },
+  { category: 'Rabbits', name: 'Rabbits Exercise and play activities' },
+  { category: 'Rabbits', name: 'Rabbits Health and wellness information' },
+  { category: 'Rabbits', name: 'Rabbits Grooming and hygiene tips' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Cage setup and bedding' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Nutrition and feeding advice' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Exercise and enrichment activities' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Health and wellness information' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Handling and socialization tips' },
+  { category: 'Turtles', name: 'Turtles Tank setup and maintenance' },
+  { category: 'Turtles', name: 'Turtles Nutrition and feeding advice' },
+  { category: 'Turtles', name: 'Turtles Health and wellness information' },
+  { category: 'Turtles', name: 'Turtles Species-specific care guides' },
+  { category: 'Turtles', name: 'Turtles Handling and socialization tips' },
+  { category: 'Snakes', name: 'Snakes Enclosure setup and maintenance' },
+  { category: 'Snakes', name: 'Snakes Nutrition and feeding advice' },
+  { category: 'Snakes', name: 'Snakes Health and wellness information' },
+  { category: 'Snakes', name: 'Snakes Species-specific care guides' },
+  { category: 'Snakes', name: 'Snakes Handling and safety tips' },
+  { category: 'Lizards', name: 'Lizards Enclosure setup and maintenance' },
+  { category: 'Lizards', name: 'Lizards Nutrition and feeding advice' },
+  { category: 'Lizards', name: 'Lizards Health and wellness information' },
+  { category: 'Lizards', name: 'Lizards Species-specific care guides' },
+  { category: 'Lizards', name: 'Lizards Handling and socialization tips' }
+];
+
+
+// Function to populate interests if not already present
+async function initializeInterests() {
+  try {
+    for (const interest of interestsData) {
+      await Interest.updateOne(
+        { name: interest.name }, // Filter by name to find existing interests
+        { $setOnInsert: interest }, // Only insert if the name doesn't exist
+        { upsert: true } // Perform an upsert operation
+      );
+    }
+    console.log('Interests have been successfully initialized.');
+  } catch (err) {
+    console.error('Error initializing interests:', err);
+  }
+}
+
+
+// MongoDB connection
+mongoose.connect('mongodb://localhost:27017/pawpal-network')
+  .then(() => {
+    console.log('MongoDB connected');
+    initializeInterests();
+  })
+  .catch((err) => {
+    console.error(err);
+  });
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
