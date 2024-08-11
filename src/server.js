@@ -925,18 +925,26 @@ const interestsData = [
 // Function to populate interests if not already present
 async function initializeInterests() {
   try {
-    for (const interest of interestsData) {
-      await Interest.updateOne(
-        { name: interest.name }, // Filter by name to find existing interests
-        { $setOnInsert: interest }, // Only insert if the name doesn't exist
-        { upsert: true } // Perform an upsert operation
-      );
+    const existingInterests = await Interest.find({}, 'name');
+    const existingInterestNames = existingInterests.map(interest => interest.name);
+
+    const newInterests = interestsData.filter(interest => !existingInterestNames.includes(interest.name));
+
+    if (newInterests.length > 0) {
+      await Interest.insertMany(newInterests, { ordered: false }); // ordered: false allows continuing on error
+      console.log('Interests have been successfully initialized.');
+    } else {
+      console.log('No new interests to add. All interests are already initialized.');
     }
-    console.log('Interests have been successfully initialized.');
   } catch (err) {
-    console.error('Error initializing interests:', err);
+    if (err.code === 11000) {
+      console.warn('Duplicate key error detected. Some interests may have already been added:', err.message);
+    } else {
+      console.error('Error initializing interests:', err);
+    }
   }
 }
+
 
 
 // MongoDB connection
