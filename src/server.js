@@ -190,7 +190,10 @@ app.get('/feed', authenticateToken, async (req, res) => {
         { author: user._id },
         { 'shares.user': { $in: followingIds } }
       ]
-    }).populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName');
+    })    .populate('author', 'username firstName lastName')
+    .populate('shares.user', 'username firstName lastName')
+    .populate('interests', 'name'); // Include interest names
+
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
     const postsWithImages = posts.map(post => {
@@ -222,7 +225,7 @@ app.get('/feed', authenticateToken, async (req, res) => {
 
 
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
-  const { description } = req.body;
+  const { description, interestId } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
 
   try {
@@ -232,6 +235,10 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
       author: req.user.id,
       authorName: req.user.username
     });
+
+    if (interestId) {
+      post.interests = [interestId]; // הוספת תחום עניין רק אם נבחר
+    }
 
     await post.save();
     res.status(201).send(post);
