@@ -41,16 +41,6 @@ app.use('/uploads', express.static('uploads'));
 const mailIconPath = path.join(__dirname, '..', 'image', 'mail.png');
 
 
-// MongoDB connection
-mongoose.connect('mongodb://localhost:27017/pawpal-network')
-  .then(() => {
-    console.log('MongoDB connected');
-    initializeInterests();
-  })
-  .catch((err) => {
-    console.error(err);
-  });
-
 // Models
 const InterestSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
@@ -1174,6 +1164,19 @@ async function initializeInterests() {
   }
 }
 
+
+
+// MongoDB connection
+mongoose.connect('mongodb://localhost:27017/pawpal-network')
+  .then(() => {
+    console.log('MongoDB connected');
+    initializeInterests();
+  })
+  .catch((err) => {
+    console.error(err);
+  });
+
+  
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
 });
