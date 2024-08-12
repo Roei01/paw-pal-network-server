@@ -38,6 +38,8 @@ const transporter = nodemailer.createTransport({
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
 app.use('/uploads', express.static('uploads'));
+const mailIconPath = path.join(__dirname, '..', 'image', 'mail.png');
+
 
 
 // Models
@@ -205,7 +207,9 @@ app.get('/feed', authenticateToken, async (req, res) => {
       
       return {
         ...post._doc,
-        image: imageUrl
+        image: imageUrl,
+        liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
+        saved: user.savedPosts.includes(post._id) // האם המשתמש שמר את הפוסט
       };
     });
 
@@ -327,8 +331,10 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     if (post.likes.includes(userId)) {
       post.likes.pull(userId);
+      post.liked = false;
     } else {
       post.likes.push(userId);
+      post.liked = true;
     }
 
     if (user.likes.includes(id)) {
@@ -601,6 +607,15 @@ app.get('/share', authenticateToken, async (req, res) => {
       sharePosts.forEach(post => {
         post.shares.forEach(share => {
           if (share.user.toString() === user.id.toString()) {
+            let imageUrl = null;
+            if (post.image) {
+              let imagePath = post.image.replace(/\\/g, '/');
+              if (!imagePath.startsWith('/')) {
+                imagePath = '/' + imagePath;
+              }
+              imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+            }
+
             userShares.push({
               ...post.toObject(), // Convert Mongoose document to plain object
               description: `Shared Post: ${post.description}`, // Add "Shared Post" text
@@ -608,8 +623,9 @@ app.get('/share', authenticateToken, async (req, res) => {
               sharedAt: share.createdAt,
               sharedBy: {
                 firstName: user.firstName,
-                lastName: user.lastName
-              }
+                lastName: user.lastName,
+              },
+              image: imageUrl // הוספת כתובת התמונה אם קיימת
             });
           }
         });
@@ -826,14 +842,6 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
 
 
 
-app.get('/about', (req, res) => {
-  const aboutContent = {
-    description: 'We are a group of dedicated software engineering students working on an exciting project to connect pet lovers through a social network. Our members include Roei, Tamir, Aviram, Nir, Elad, Neria, and Idan. Stay tuned for more updates!',
-    members: ['Roei', 'Tamir', 'Aviram', 'Nir', 'Elad', 'Neria', 'Idan'],
-    project: 'Our project, PawPal Network, is a social network designed to help pet lovers connect, share experiences, and celebrate the joys of pet ownership.',
-  };
-  res.json(aboutContent);
-});
 
 app.post('/contact', async (req, res) => {
   const { name, email, message } = req.body;
@@ -843,18 +851,33 @@ app.post('/contact', async (req, res) => {
     to: 'roeina@ac.sce.ac.il, tamirbe2@ac.sce.ac.il, nirag@ac.sce.ac.il, neriaat@ac.sce.ac.il, avirabe5@ac.sce.ac.il, eladge1@ac.sce.ac.il, idanya@ac.sce.ac.il',
     subject: `New message from ${name}`,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-        <h2 style="text-align: center; color: #333;">New Message from ${name}</h2>
-        <p style="font-size: 16px; color: #555;">You have received a new message through the contact form on your website:</p>
-        <p style="font-size: 16px; color: #555;"><strong>Name:</strong> ${name}</p>
-        <p style="font-size: 16px; color: #555;"><strong>Email:</strong> ${email}</p>
-        <p style="font-size: 16px; color: #555;"><strong>Message:</strong></p>
-        <p style="font-size: 16px; color: #555; background: #f9f9f9; padding: 10px; border-radius: 5px;">${message}</p>
-        <p style="text-align: center; margin-top: 20px; font-size: 14px; color: #999;">This is an automated message. Please do not reply directly to this email.</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); background: #ffffff;">
+        <div style="text-align: center; background: #bebebe; padding: 20px; border-radius: 10px 10px 0 0;">
+          <img src="cid:mailIcon" alt="Mail Icon" style="width: 50px; height: 50px; display: block; margin: 0 auto;">
+          <h2 style="color: #ffffff;">New Message from ${name}</h2>
+        </div>
+        <div style="padding: 20px;">
+          <p style="font-size: 16px; color: #555;">You have received a new message through the contact form on your website:</p>
+          <p style="font-size: 16px; color: #555;"><strong>Name:</strong> ${name}</p>
+          <p style="font-size: 16px; color: #555;"><strong>Email:</strong> ${email}</p>
+          <p style="font-size: 16px; color: #555;"><strong>Message:</strong></p>
+          <p style="font-size: 16px; color: #555; background: #f9f9f9; padding: 10px; border-radius: 5px;">${message}</p>
+        </div>
+        <div style="text-align: center; padding: 20px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 14px; color: #999;">This is an automated message. Please do not reply directly to this email.</p>
+        </div>
       </div>
-    `
+    `,
+    attachments: [
+      {
+        filename: 'mail.png',
+        path: mailIconPath,
+        cid: 'mailIcon' // same cid value as in the html img src
+      }
+    ]
   };
-
+  
+  
   try {
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: 'Message received' });
