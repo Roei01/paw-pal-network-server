@@ -190,7 +190,10 @@ app.get('/feed', authenticateToken, async (req, res) => {
         { author: user._id },
         { 'shares.user': { $in: followingIds } }
       ]
-    }).populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName');
+    })    .populate('author', 'username firstName lastName')
+    .populate('shares.user', 'username firstName lastName')
+    .populate('interests', 'name'); // Include interest names
+
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
     const postsWithImages = posts.map(post => {
@@ -222,7 +225,7 @@ app.get('/feed', authenticateToken, async (req, res) => {
 
 
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
-  const { description } = req.body;
+  const { description, interestId } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
 
   try {
@@ -232,6 +235,10 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
       author: req.user.id,
       authorName: req.user.username
     });
+
+    if (interestId) {
+      post.interests = [interestId]; // הוספת תחום עניין רק אם נבחר
+    }
 
     await post.save();
     res.status(201).send(post);
@@ -834,6 +841,185 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
 });
 
 
+
+
+
+
+
+app.get('/interests', authenticateToken, async (req, res) => {
+  try {
+    const interests = await Interest.find({});
+    res.json(interests);
+  } catch (err) {
+    res.status(500).send('Error fetching interests');
+  }
+});
+
+
+app.get('/user-interests', authenticateToken, async (req, res) => {
+  try {
+    // שליפת המשתמש לפי המזהה שמופיע בטוקן
+    const user = await User.findById(req.user.id).populate('followingInterests');
+    
+    // בדיקה שהמשתמש קיים
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // החזרת תחומי העניין שאחריהם המשתמש עוקב כתגובה
+    res.json(user.followingInterests);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching user interests' });
+  }
+});
+
+app.get('/interest-categories', authenticateToken, async (req, res) => {
+  try {
+    // נניח שיש לך מודל של תחום עניין עם שדות כמו שם וקטגוריה
+    const categories = await Interest.aggregate([
+      {
+        $group: {
+          _id: '$category', // מקבץ לפי קטגוריה
+          interests: { $push: { _id: '$_id', name: '$name' } } // צובר את התחומי עניין בכל קטגוריה
+        }
+      },
+      {
+        $project: {
+          _id: 0, // לא מציג את ה-id של הקבוצה
+          name: '$_id', // מציג את שם הקטגוריה
+          interests: 1 // מציג את התחומי עניין בקטגוריה
+        }
+      }
+    ]);
+
+    res.json(categories);
+  } catch (err) {
+    res.status(500).send('Error fetching interest categories');
+  }
+});
+
+
+app.get('/interests-posts', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('followingInterests');
+    const interestsIds = user.followingInterests.map(interest => interest._id);
+    
+    const posts = await Post.find({ interests: { $in: interestsIds } })
+                            .populate('author', 'username firstName lastName')
+                            .populate('interests', 'name category');
+    
+    res.json(posts);
+  } catch (err) {
+    res.status(500).send('Error fetching posts by interests');
+  }
+});
+
+
+
+app.get('/trending-posts', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('followingInterests');
+    const interestsIds = user.followingInterests.map(interest => interest._id);
+    
+    const posts = await Post.aggregate([
+      { $match: { interests: { $in: interestsIds } } },
+      { $project: { description: 1, author: 1, image: 1, likesCount: { $size: "$likes" }, createdAt: 1 } },
+      { $sort: { likesCount: -1, createdAt: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    res.json(posts);
+  } catch (err) {
+    res.status(500).send('Error fetching trending posts');
+  }
+});
+
+app.get('/popular-interests', authenticateToken, async (req, res) => {
+  try {
+    const popularInterests = await Interest.aggregate([
+      { $lookup: { from: 'users', localField: '_id', foreignField: 'followingInterests', as: 'followers' } },
+      { $project: { name: 1, category: 1, followersCount: { $size: "$followers" } } },
+      { $sort: { followersCount: -1 } },
+      { $limit: 10 }
+    ]);
+    res.json(popularInterests);
+  } catch (err) {
+    res.status(500).send('Error fetching popular interests');
+  }
+});
+
+app.get('/interests-by-category', authenticateToken, async (req, res) => {
+  const { category } = req.query;
+
+  try {
+    const interests = await Interest.find({ category: new RegExp(category, 'i') });
+    res.json(interests);
+  } catch (err) {
+    res.status(500).send('Error fetching interests by category');
+  }
+});
+
+app.get('/search-interests', authenticateToken, async (req, res) => {
+  const { query } = req.query;
+
+  try {
+    const interests = await Interest.find({ name: new RegExp(query, 'i') });
+    res.json(interests);
+  } catch (err) {
+    res.status(500).send('Error searching interests');
+  }
+});
+
+
+app.post('/follow-interest', authenticateToken, async (req, res) => {
+  const { interestId } = req.body;
+
+  try {
+    const interest = await Interest.findById(interestId);
+    const user = await User.findById(req.user.id);
+
+    if (!interest) {
+      return res.status(404).json({ message: 'Interest not found' });
+    }
+
+    if (!user.followingInterests.includes(interestId)) {
+      user.followingInterests.push(interestId);
+      await user.save();
+    }
+
+    res.status(200).json({ message: 'Interest followed successfully' });  // Ensure JSON response
+  } catch (err) {
+    res.status(500).json({ message: 'Error following interest' });
+  }
+});
+
+
+
+app.post('/unfollow-interest', authenticateToken, async (req, res) => {
+  const { interestId } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user.followingInterests.includes(interestId)) {
+      return res.status(400).json({ message: 'You are not following this interest' });
+    }
+
+    user.followingInterests = user.followingInterests.filter(id => id.toString() !== interestId);
+    await user.save();
+
+    res.status(200).json({ message: 'Interest unfollowed successfully' });  // Ensure JSON response
+  } catch (err) {
+    res.status(500).json({ message: 'Error unfollowing interest' });
+  }
+});
+
+
+
+
+
+
+
 app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
@@ -967,6 +1153,7 @@ async function initializeInterests() {
     }
   }
 }
+
 
 
 
