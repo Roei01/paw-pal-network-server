@@ -20,9 +20,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
-// CORS options
 const corsOptions = {
-  origin: 'https://paw-pal-network-client.onrender.com',
+  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200,
 };
 
@@ -191,7 +190,9 @@ app.get('/feed', authenticateToken, async (req, res) => {
         { author: user._id },
         { 'shares.user': { $in: followingIds } }
       ]
-    })  .populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName').populate('interests', 'name'); // Include interest names
+    })    .populate('author', 'username firstName lastName')
+    .populate('shares.user', 'username firstName lastName')
+    .populate('interests', 'name'); // Include interest names
 
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
@@ -903,7 +904,9 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.id).populate('followingInterests');
     const interestsIds = user.followingInterests.map(interest => interest._id);
     
-    const posts = await Post.find({ interests: { $in: interestsIds } }).populate('author', 'username firstName lastName').populate('interests', 'name category');
+    const posts = await Post.find({ interests: { $in: interestsIds } })
+                            .populate('author', 'username firstName lastName')
+                            .populate('interests', 'name category');
 
     const postsWithImages = posts.map(post => {
       let imageUrl = null;
@@ -935,7 +938,7 @@ app.get('/trending-posts', authenticateToken, async (req, res) => {
     
     const posts = await Post.aggregate([
       { $match: { interests: { $in: interestsIds } } },
-      { $project: { description: 1, author: 1, image: 1, likesCount: { $size: '$likes' }, createdAt: 1 } },
+      { $project: { description: 1, author: 1, image: 1, likesCount: { $size: "$likes" }, createdAt: 1 } },
       { $sort: { likesCount: -1, createdAt: -1 } },
       { $limit: 10 }
     ]);
@@ -950,7 +953,7 @@ app.get('/popular-interests', authenticateToken, async (req, res) => {
   try {
     const popularInterests = await Interest.aggregate([
       { $lookup: { from: 'users', localField: '_id', foreignField: 'followingInterests', as: 'followers' } },
-      { $project: { name: 1, category: 1, followersCount: { $size: '$followers' } } },
+      { $project: { name: 1, category: 1, followersCount: { $size: "$followers" } } },
       { $sort: { followersCount: -1 } },
       { $limit: 10 }
     ]);
@@ -1142,11 +1145,10 @@ const interestsData = [
   { category: 'Lizards', name: 'Lizards Handling and socialization tips' }
 ];
 
+
 // Function to populate interests if not already present
 async function initializeInterests() {
   try {
-    console.log('Starting interests initialization...');
-
     const existingInterests = await Interest.find({}, 'name');
     const existingInterestNames = existingInterests.map(interest => interest.name);
 
@@ -1170,20 +1172,15 @@ async function initializeInterests() {
 
 
 
-
-
 // MongoDB connection
-const uri = process.env.MONGODB_URI || 'mongodb+srv://user:password@cluster0.mongodb.net/myDatabase?retryWrites=true&w=majority';
-
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect('mongodb://localhost:27017/pawpal-network')
   .then(() => {
-    console.log('Connected to MongoDB Atlas');
-    // Ensure that the initializeInterests function runs after successful connection
+    console.log('MongoDB connected');
     initializeInterests();
   })
-  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
-
-
+  .catch((err) => {
+    console.error(err);
+  });
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
@@ -1193,4 +1190,4 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 
-export default app;
+export default app;//
