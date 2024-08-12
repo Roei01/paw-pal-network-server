@@ -907,8 +907,23 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
     const posts = await Post.find({ interests: { $in: interestsIds } })
                             .populate('author', 'username firstName lastName')
                             .populate('interests', 'name category');
-    
-    res.json(posts);
+
+    const postsWithImages = posts.map(post => {
+      let imageUrl = null;
+      if (post.image) {
+        let imagePath = post.image.replace(/\\/g, '/');
+        if (!imagePath.startsWith('/')) {
+          imagePath = '/' + imagePath;
+        }
+        imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+      }
+      return {
+        ...post.toObject(),
+        image: imageUrl
+      };
+    });
+
+    res.json(postsWithImages);
   } catch (err) {
     res.status(500).send('Error fetching posts by interests');
   }
