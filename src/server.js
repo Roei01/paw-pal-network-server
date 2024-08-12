@@ -43,15 +43,14 @@ app.use('/uploads', express.static('uploads'));
 const mailIconPath = path.join(__dirname, '..', 'image', 'mail.png');
 
 
-// MongoDB connection
-const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlas'))
-  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
-
-
 
 // Models
+const InterestSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  category: { type: String, required: true },
+  connectedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }]  // Array of connected posts
+});
+
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   firstName: { type: String, required: true },
@@ -65,6 +64,7 @@ const UserSchema = new mongoose.Schema({
   savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
   shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // עדכון הסכמה לשמור מזהי פוסטים
   pet: { type: String },
+  followingInterests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Interest' }]  // Array of interests the user follows
 });
 
 const PostSchema = new mongoose.Schema({
@@ -78,7 +78,8 @@ const PostSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     text: String,
     createdAt: { type: Date, default: Date.now }
-  }]
+  }],
+  interests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Interest' }] 
 });
 
 const Schema = mongoose.Schema;
@@ -91,6 +92,7 @@ const SavePostSchema = new Schema({
 
 const User = mongoose.model('User', UserSchema);
 const Post = mongoose.model('Post', PostSchema);
+const Interest = mongoose.model('Interest', InterestSchema);
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -190,7 +192,10 @@ app.get('/feed', authenticateToken, async (req, res) => {
         { author: user._id },
         { 'shares.user': { $in: followingIds } }
       ]
-    }).populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName');
+    })    .populate('author', 'username firstName lastName')
+    .populate('shares.user', 'username firstName lastName')
+    .populate('interests', 'name'); // Include interest names
+
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
     const postsWithImages = posts.map(post => {
@@ -222,7 +227,7 @@ app.get('/feed', authenticateToken, async (req, res) => {
 
 
 app.post('/posts', authenticateToken, upload.single('image'), async (req, res) => {
-  const { description } = req.body;
+  const { description, interestId } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
 
   try {
@@ -232,6 +237,10 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
       author: req.user.id,
       authorName: req.user.username
     });
+
+    if (interestId) {
+      post.interests = [interestId]; // הוספת תחום עניין רק אם נבחר
+    }
 
     await post.save();
     res.status(201).send(post);
@@ -607,6 +616,15 @@ app.get('/share', authenticateToken, async (req, res) => {
       sharePosts.forEach(post => {
         post.shares.forEach(share => {
           if (share.user.toString() === user.id.toString()) {
+            let imageUrl = null;
+            if (post.image) {
+              let imagePath = post.image.replace(/\\/g, '/');
+              if (!imagePath.startsWith('/')) {
+                imagePath = '/' + imagePath;
+              }
+              imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+            }
+
             userShares.push({
               ...post.toObject(), // Convert Mongoose document to plain object
               description: `Shared Post: ${post.description}`, // Add "Shared Post" text
@@ -614,8 +632,9 @@ app.get('/share', authenticateToken, async (req, res) => {
               sharedAt: share.createdAt,
               sharedBy: {
                 firstName: user.firstName,
-                lastName: user.lastName
-              }
+                lastName: user.lastName,
+              },
+              image: imageUrl // הוספת כתובת התמונה אם קיימת
             });
           }
         });
@@ -824,6 +843,200 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
 });
 
 
+
+
+
+
+
+app.get('/interests', authenticateToken, async (req, res) => {
+  try {
+    const interests = await Interest.find({});
+    res.json(interests);
+  } catch (err) {
+    res.status(500).send('Error fetching interests');
+  }
+});
+
+
+app.get('/user-interests', authenticateToken, async (req, res) => {
+  try {
+    // שליפת המשתמש לפי המזהה שמופיע בטוקן
+    const user = await User.findById(req.user.id).populate('followingInterests');
+    
+    // בדיקה שהמשתמש קיים
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // החזרת תחומי העניין שאחריהם המשתמש עוקב כתגובה
+    res.json(user.followingInterests);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching user interests' });
+  }
+});
+
+app.get('/interest-categories', authenticateToken, async (req, res) => {
+  try {
+    // נניח שיש לך מודל של תחום עניין עם שדות כמו שם וקטגוריה
+    const categories = await Interest.aggregate([
+      {
+        $group: {
+          _id: '$category', // מקבץ לפי קטגוריה
+          interests: { $push: { _id: '$_id', name: '$name' } } // צובר את התחומי עניין בכל קטגוריה
+        }
+      },
+      {
+        $project: {
+          _id: 0, // לא מציג את ה-id של הקבוצה
+          name: '$_id', // מציג את שם הקטגוריה
+          interests: 1 // מציג את התחומי עניין בקטגוריה
+        }
+      }
+    ]);
+
+    res.json(categories);
+  } catch (err) {
+    res.status(500).send('Error fetching interest categories');
+  }
+});
+
+
+app.get('/interests-posts', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('followingInterests');
+    const interestsIds = user.followingInterests.map(interest => interest._id);
+    
+    const posts = await Post.find({ interests: { $in: interestsIds } })
+                            .populate('author', 'username firstName lastName')
+                            .populate('interests', 'name category');
+
+    const postsWithImages = posts.map(post => {
+      let imageUrl = null;
+      if (post.image) {
+        let imagePath = post.image.replace(/\\/g, '/');
+        if (!imagePath.startsWith('/')) {
+          imagePath = '/' + imagePath;
+        }
+        imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
+      }
+      return {
+        ...post.toObject(),
+        image: imageUrl
+      };
+    });
+
+    res.json(postsWithImages);
+  } catch (err) {
+    res.status(500).send('Error fetching posts by interests');
+  }
+});
+
+
+
+app.get('/trending-posts', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('followingInterests');
+    const interestsIds = user.followingInterests.map(interest => interest._id);
+    
+    const posts = await Post.aggregate([
+      { $match: { interests: { $in: interestsIds } } },
+      { $project: { description: 1, author: 1, image: 1, likesCount: { $size: "$likes" }, createdAt: 1 } },
+      { $sort: { likesCount: -1, createdAt: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    res.json(posts);
+  } catch (err) {
+    res.status(500).send('Error fetching trending posts');
+  }
+});
+
+app.get('/popular-interests', authenticateToken, async (req, res) => {
+  try {
+    const popularInterests = await Interest.aggregate([
+      { $lookup: { from: 'users', localField: '_id', foreignField: 'followingInterests', as: 'followers' } },
+      { $project: { name: 1, category: 1, followersCount: { $size: "$followers" } } },
+      { $sort: { followersCount: -1 } },
+      { $limit: 10 }
+    ]);
+    res.json(popularInterests);
+  } catch (err) {
+    res.status(500).send('Error fetching popular interests');
+  }
+});
+
+app.get('/interests-by-category', authenticateToken, async (req, res) => {
+  const { category } = req.query;
+
+  try {
+    const interests = await Interest.find({ category: new RegExp(category, 'i') });
+    res.json(interests);
+  } catch (err) {
+    res.status(500).send('Error fetching interests by category');
+  }
+});
+
+app.get('/search-interests', authenticateToken, async (req, res) => {
+  const { query } = req.query;
+
+  try {
+    const interests = await Interest.find({ name: new RegExp(query, 'i') });
+    res.json(interests);
+  } catch (err) {
+    res.status(500).send('Error searching interests');
+  }
+});
+
+
+app.post('/follow-interest', authenticateToken, async (req, res) => {
+  const { interestId } = req.body;
+
+  try {
+    const interest = await Interest.findById(interestId);
+    const user = await User.findById(req.user.id);
+
+    if (!interest) {
+      return res.status(404).json({ message: 'Interest not found' });
+    }
+
+    if (!user.followingInterests.includes(interestId)) {
+      user.followingInterests.push(interestId);
+      await user.save();
+    }
+
+    res.status(200).json({ message: 'Interest followed successfully' });  // Ensure JSON response
+  } catch (err) {
+    res.status(500).json({ message: 'Error following interest' });
+  }
+});
+
+
+
+app.post('/unfollow-interest', authenticateToken, async (req, res) => {
+  const { interestId } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user.followingInterests.includes(interestId)) {
+      return res.status(400).json({ message: 'You are not following this interest' });
+    }
+
+    user.followingInterests = user.followingInterests.filter(id => id.toString() !== interestId);
+    await user.save();
+
+    res.status(200).json({ message: 'Interest unfollowed successfully' });  // Ensure JSON response
+  } catch (err) {
+    res.status(500).json({ message: 'Error unfollowing interest' });
+  }
+});
+
+
+
+
+
+
+
 app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
   res.send('Uploaded content removed');
@@ -832,14 +1045,6 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
 
 
 
-app.get('/about', (req, res) => {
-  const aboutContent = {
-    description: 'We are a group of dedicated software engineering students working on an exciting project to connect pet lovers through a social network. Our members include Roei, Tamir, Aviram, Nir, Elad, Neria, and Idan. Stay tuned for more updates!',
-    members: ['Roei', 'Tamir', 'Aviram', 'Nir', 'Elad', 'Neria', 'Idan'],
-    project: 'Our project, PawPal Network, is a social network designed to help pet lovers connect, share experiences, and celebrate the joys of pet ownership.',
-  };
-  res.json(aboutContent);
-});
 
 app.post('/contact', async (req, res) => {
   const { name, email, message } = req.body;
@@ -888,6 +1093,94 @@ app.post('/contact', async (req, res) => {
 app.get('/getUserDetails', (req, res) => {
   res.json(aboutContent);
 });
+
+const interestsData = [
+  { category: 'Dogs', name: 'Dogs Training tips and techniques' },
+  { category: 'Dogs', name: 'Dogs Nutrition and diet advice' },
+  { category: 'Dogs', name: 'Dogs Breed-specific care guides' },
+  { category: 'Dogs', name: 'Dogs Exercise and activity suggestions' },
+  { category: 'Dogs', name: 'Dogs Health and wellness information' },
+  { category: 'Cats', name: 'Cats Litter box training' },
+  { category: 'Cats', name: 'Cats Nutrition and feeding advice' },
+  { category: 'Cats', name: 'Cats Play and enrichment activities' },
+  { category: 'Cats', name: 'Cats Grooming and hygiene tips' },
+  { category: 'Cats', name: 'Cats Health and wellness information' },
+  { category: 'Fish', name: 'Fish Aquarium setup and maintenance' },
+  { category: 'Fish', name: 'Fish species compatibility' },
+  { category: 'Fish', name: 'Fish Feeding and nutrition' },
+  { category: 'Fish', name: 'Fish Water quality and filtration tips' },
+  { category: 'Fish', name: 'Fish Health and disease prevention' },
+  { category: 'Birds', name: 'Birds Cage setup and enrichment' },
+  { category: 'Birds', name: 'Birds Nutrition and feeding advice' },
+  { category: 'Birds', name: 'Birds Training and socialization tips' },
+  { category: 'Birds', name: 'Birds Health and wellness information' },
+  { category: 'Birds', name: 'Birds Species-specific care guides' },
+  { category: 'Hamsters', name: 'Hamsters Cage setup and bedding' },
+  { category: 'Hamsters', name: 'Hamsters Nutrition and feeding advice' },
+  { category: 'Hamsters', name: 'Hamsters Exercise and enrichment activities' },
+  { category: 'Hamsters', name: 'Hamsters Health and wellness information' },
+  { category: 'Hamsters', name: 'Hamsters Handling and socialization tips' },
+  { category: 'Rabbits', name: 'Rabbits Hutch and habitat setup' },
+  { category: 'Rabbits', name: 'Rabbits Nutrition and feeding advice' },
+  { category: 'Rabbits', name: 'Rabbits Exercise and play activities' },
+  { category: 'Rabbits', name: 'Rabbits Health and wellness information' },
+  { category: 'Rabbits', name: 'Rabbits Grooming and hygiene tips' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Cage setup and bedding' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Nutrition and feeding advice' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Exercise and enrichment activities' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Health and wellness information' },
+  { category: 'Guinea Pigs', name: 'Guinea Pigs Handling and socialization tips' },
+  { category: 'Turtles', name: 'Turtles Tank setup and maintenance' },
+  { category: 'Turtles', name: 'Turtles Nutrition and feeding advice' },
+  { category: 'Turtles', name: 'Turtles Health and wellness information' },
+  { category: 'Turtles', name: 'Turtles Species-specific care guides' },
+  { category: 'Turtles', name: 'Turtles Handling and socialization tips' },
+  { category: 'Snakes', name: 'Snakes Enclosure setup and maintenance' },
+  { category: 'Snakes', name: 'Snakes Nutrition and feeding advice' },
+  { category: 'Snakes', name: 'Snakes Health and wellness information' },
+  { category: 'Snakes', name: 'Snakes Species-specific care guides' },
+  { category: 'Snakes', name: 'Snakes Handling and safety tips' },
+  { category: 'Lizards', name: 'Lizards Enclosure setup and maintenance' },
+  { category: 'Lizards', name: 'Lizards Nutrition and feeding advice' },
+  { category: 'Lizards', name: 'Lizards Health and wellness information' },
+  { category: 'Lizards', name: 'Lizards Species-specific care guides' },
+  { category: 'Lizards', name: 'Lizards Handling and socialization tips' }
+];
+
+
+// Function to populate interests if not already present
+async function initializeInterests() {
+  try {
+    const existingInterests = await Interest.find({}, 'name');
+    const existingInterestNames = existingInterests.map(interest => interest.name);
+
+    const newInterests = interestsData.filter(interest => !existingInterestNames.includes(interest.name));
+
+    if (newInterests.length > 0) {
+      await Interest.insertMany(newInterests, { ordered: false }); // ordered: false allows continuing on error
+      console.log('Interests have been successfully initialized.');
+    } else {
+      console.log('No new interests to add. All interests are already initialized.');
+    }
+  } catch (err) {
+    if (err.code === 11000) {
+      console.warn('Duplicate key error detected. Some interests may have already been added:', err.message);
+    } else {
+      console.error('Error initializing interests:', err);
+    }
+  }
+}
+
+
+
+
+
+// MongoDB connection
+const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
+mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB Atlas'))
+  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
+
 
 
 // All other GET requests not handled before will return the Angular app
