@@ -42,6 +42,12 @@ app.use('/uploads', express.static('uploads'));
 const mailIconPath = path.join(__dirname, '..', 'image', 'mail.png');
 
 
+// MongoDB connection
+const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
+mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB Atlas'))
+  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
+
 
 // Models
 const InterestSchema = new mongoose.Schema({
@@ -1165,15 +1171,6 @@ async function initializeInterests() {
     }
   }
 }
-
-
-
-// MongoDB connection
-const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n0jY@pawpal-network.zo5jd6n.mongodb.net/?retryWrites=true&w=majority&appName=pawpal-network';
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlas'))
-  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
-
 
 // All other GET requests not handled before will return the Angular app
 app.get('*', (req, res) => {
