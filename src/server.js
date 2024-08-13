@@ -859,14 +859,37 @@ app.get('/saved-content', authenticateToken, async (req, res) => {
 });
 
 app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
-  // Handle removal of uploaded content
-  res.send('Uploaded content removed');
-});
+  try {
+    const postId = req.params.id;
+    const post = await Post.findById(postId);
 
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
 
-app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
-  // Handle removal of uploaded content
-  res.send('Uploaded content removed');
+    // Log the post image path for debugging
+    console.log('Post image path:', post.image);
+
+    // Delete the image file if it exists
+    if (post.image) {
+      const imagePath = path.join(__dirname, 'uploads', path.basename(post.image));
+      // Log the constructed image path for debugging
+      console.log('Constructed image path:', imagePath);
+
+      try {
+        await unlinkFile(imagePath);
+      } catch (error) {
+        console.error('Error deleting image file:', error);
+        // Continue to delete the post even if the image deletion fails
+      }
+    }
+
+    await Post.findByIdAndDelete(postId);
+    res.status(200).json({ message: 'Post and image deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    res.status(500).send('Server error');
+  }
 });
 
 
