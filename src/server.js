@@ -785,13 +785,6 @@ app.post('/check-username', async (req, res) => {
   res.send(!!existingUsername);
 });
 
-// נתיב לבדיקה אם שם המשתמש קיים
-app.post('/check-username', authenticateToken, async (req, res) => {
-  const { username } = req.body;
-  const existingUsername = await User.findOne({ username, _id: { $ne: req.user.id } });
-  res.send(!!existingUsername); // שולח true אם שם המשתמש קיים (מלבד המשתמש הנוכחי)
-});
-
 
 // נתיב לבדיקה אם האימייל קיים
 app.post('/check-email', async (req, res) => {
