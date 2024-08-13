@@ -488,27 +488,25 @@ app.post('/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/delete-account', authenticateToken, async (req, res) => {
+app.post('/delete-account', authenticateToken, async (req, res) => {
   try {
-    const { password } = req.body; // קבלת הסיסמה מהבקשה
-    console.log(req.body);
+    const { password } = req.body;
 
-    // חיפוש המשתמש במסד הנתונים לפי ID
     const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(404).send('User not found');
     }
 
-    // השוואת הסיסמה שסופקה עם הסיסמה המוצפנת במסד הנתונים
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).send('Invalid password');
     }
 
-    // אם הסיסמה תואמת, המשך למחיקת החשבון
     await User.findByIdAndDelete(req.user.id);
-    res.send('Account deleted');
+
+    // החזרת תגובה שמציינת שהמחיקה הצליחה
+    res.status(200).send('Account deleted');
   } catch (err) {
     res.status(500).send('Error deleting account');
   }
@@ -741,7 +739,7 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
 
 // נתיב לעדכון פרטי המשתמש
 app.put('/user-details', authenticateToken, async (req, res) => {
-  const { firstName, lastName, email, dateOfBirth, pet } = req.body;
+  const { username, firstName, lastName, email, pet } = req.body;
 
   try {
     const user = await User.findById(req.user.id);
@@ -749,13 +747,30 @@ app.put('/user-details', authenticateToken, async (req, res) => {
       return res.status(404).send('User not found');
     }
 
+    // בדיקת האם שם המשתמש כבר קיים
+    if (username && username !== user.username) {
+      const existingUsername = await User.findOne({ username });
+      if (existingUsername) {
+        return res.status(400).send('Username already exists');
+      }
+    }
+
+    // בדיקת האם האימייל כבר קיים
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        return res.status(400).send('Email already exists');
+      }
+    }
+
     // עדכון הפרטים החדשים
     user.firstName = firstName || user.firstName;
     user.lastName = lastName || user.lastName;
     user.email = email || user.email;
-    user.dateOfBirth = dateOfBirth || user.dateOfBirth;
     user.pet = pet || user.pet;
+    user.username = username || user.username;
     await user.save();
+
     res.status(200).send('User details updated successfully');
   } catch (err) {
     console.error('Error updating user details:', err);
@@ -763,6 +778,27 @@ app.put('/user-details', authenticateToken, async (req, res) => {
   }
 });
 
+// נתיב לבדיקה אם שם המשתמש קיים
+app.post('/check-username', async (req, res) => {
+  const { username } = req.body;
+  const existingUsername = await User.findOne({ username });
+  res.send(!!existingUsername);
+});
+
+// נתיב לבדיקה אם שם המשתמש קיים
+app.post('/check-username', authenticateToken, async (req, res) => {
+  const { username } = req.body;
+  const existingUsername = await User.findOne({ username, _id: { $ne: req.user.id } });
+  res.send(!!existingUsername); // שולח true אם שם המשתמש קיים (מלבד המשתמש הנוכחי)
+});
+
+
+// נתיב לבדיקה אם האימייל קיים
+app.post('/check-email', async (req, res) => {
+  const { email } = req.body;
+  const existingEmail = await User.findOne({ email });
+  res.send(!!existingEmail);
+});
 
 //return the favorite post(personal-area)
 // Return favorite posts with proper image URLs
