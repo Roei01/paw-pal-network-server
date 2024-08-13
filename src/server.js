@@ -874,9 +874,6 @@ app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
-    // Log the post image path for debugging
-    console.log('Post image path:', post.image);
-
     // Delete the image file if it exists
     if (post.image) {
       const imagePath = path.join(__dirname, 'uploads', path.basename(post.image));
