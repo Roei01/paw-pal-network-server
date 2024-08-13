@@ -202,7 +202,7 @@ app.get('/feed', authenticateToken, async (req, res) => {
         }
         imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
       }
-      
+
       return {
         ...post._doc,
         image: imageUrl
@@ -490,6 +490,23 @@ app.post('/change-password', authenticateToken, async (req, res) => {
 
 app.delete('/delete-account', authenticateToken, async (req, res) => {
   try {
+    const { password } = req.body; // קבלת הסיסמה מהבקשה
+    console.log(req.body);
+
+    // חיפוש המשתמש במסד הנתונים לפי ID
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // השוואת הסיסמה שסופקה עם הסיסמה המוצפנת במסד הנתונים
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).send('Invalid password');
+    }
+
+    // אם הסיסמה תואמת, המשך למחיקת החשבון
     await User.findByIdAndDelete(req.user.id);
     res.send('Account deleted');
   } catch (err) {
@@ -724,8 +741,8 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
 
 // נתיב לעדכון פרטי המשתמש
 app.put('/user-details', authenticateToken, async (req, res) => {
-  const { firstName, lastName, email, dateOfBirth, pet} = req.body;
-  
+  const { firstName, lastName, email, dateOfBirth, pet } = req.body;
+
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -737,7 +754,7 @@ app.put('/user-details', authenticateToken, async (req, res) => {
     user.lastName = lastName || user.lastName;
     user.email = email || user.email;
     user.dateOfBirth = dateOfBirth || user.dateOfBirth;
-    user.pet= pet|| user.pet;
+    user.pet = pet || user.pet;
     await user.save();
     res.status(200).send('User details updated successfully');
   } catch (err) {
