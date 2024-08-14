@@ -77,7 +77,7 @@ const PostSchema = new mongoose.Schema({
     text: String,
     createdAt: { type: Date, default: Date.now }
   }],
-  interests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Interest' }] 
+  interests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Interest' }]
 });
 
 const Schema = mongoose.Schema;
@@ -190,9 +190,9 @@ app.get('/feed', authenticateToken, async (req, res) => {
         { author: user._id },
         { 'shares.user': { $in: followingIds } }
       ]
-    })    .populate('author', 'username firstName lastName')
-    .populate('shares.user', 'username firstName lastName')
-    .populate('interests', 'name'); // Include interest names
+    }).populate('author', 'username firstName lastName')
+      .populate('shares.user', 'username firstName lastName')
+      .populate('interests', 'name'); // Include interest names
 
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
@@ -207,7 +207,7 @@ app.get('/feed', authenticateToken, async (req, res) => {
         }
         imageUrl = `${req.protocol}://${req.get('host')}${imagePath}`;
       }
-      
+
       return {
         ...post._doc,
         image: imageUrl,
@@ -924,7 +924,7 @@ app.get('/user-interests', authenticateToken, async (req, res) => {
   try {
     // שליפת המשתמש לפי המזהה שמופיע בטוקן
     const user = await User.findById(req.user.id).populate('followingInterests');
-    
+
     // בדיקה שהמשתמש קיים
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -967,10 +967,10 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate('followingInterests');
     const interestsIds = user.followingInterests.map(interest => interest._id);
-    
+
     const posts = await Post.find({ interests: { $in: interestsIds } })
-                            .populate('author', 'username firstName lastName')
-                            .populate('interests', 'name category');
+      .populate('author', 'username firstName lastName')
+      .populate('interests', 'name category');
 
     const postsWithImages = posts.map(post => {
       let imageUrl = null;
@@ -999,14 +999,14 @@ app.get('/trending-posts', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate('followingInterests');
     const interestsIds = user.followingInterests.map(interest => interest._id);
-    
+
     const posts = await Post.aggregate([
       { $match: { interests: { $in: interestsIds } } },
       { $project: { description: 1, author: 1, image: 1, likesCount: { $size: "$likes" }, createdAt: 1 } },
       { $sort: { likesCount: -1, createdAt: -1 } },
       { $limit: 10 }
     ]);
-    
+
     res.json(posts);
   } catch (err) {
     res.status(500).send('Error fetching trending posts');
@@ -1141,8 +1141,8 @@ app.post('/contact', async (req, res) => {
       }
     ]
   };
-  
-  
+
+
   try {
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: 'Message received' });
