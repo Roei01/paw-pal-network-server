@@ -1000,10 +1000,6 @@ app.get('/search-interests', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/followed-interests-posts', authenticateToken, async (req, res) =>
-{
-
-});
 
 
 app.post('/follow-interest', authenticateToken, async (req, res) => {
