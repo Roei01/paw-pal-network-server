@@ -663,13 +663,17 @@ app.delete('/Unshare/:postId/:userId/:createdAt', authenticateToken, async (req,
       return res.status(404).send('Share not found');
     }
 
-    post.shares.splice(shareIndex, 1);
-    await post.save();
+    // שימוש בעדכון ישיר על מנת לעדכן את המסמך ולמנוע בעיות גרסה
+    await Post.updateOne(
+      { _id: postId, "shares.user": userId, "shares.createdAt": createdAt },
+      { $pull: { shares: { user: userId, createdAt: createdAt } } }
+    );
 
     // הסרת מזהה השיתוף מרשימת השיתופים של המשתמש
-    const user = await User.findById(currentUserId);
-    user.shares = user.shares.filter(userShareId => userShareId.toString() !== postId);
-    await user.save();
+    await User.updateOne(
+      { _id: currentUserId },
+      { $pull: { shares: postId } }
+    );
 
     res.status(200).send({ message: 'Unshared post successfully' });
   } catch (error) {
