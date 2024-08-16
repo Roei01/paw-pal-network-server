@@ -54,6 +54,7 @@ mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
 
 
 
+
 // Models
 const InterestSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
@@ -211,7 +212,6 @@ function authenticateToken(req, res, next) {
   }
 }
 
-
 // Routes
 app.post('/register', async (req, res) => {
   const { username, firstName, lastName, email, password, dateOfBirth } = req.body;
@@ -281,7 +281,9 @@ app.get('/feed', authenticateToken, async (req, res) => {
         { author: user._id },
         { 'shares.user': { $in: followingIds } }
       ]
-    })    .populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName').populate('interests', 'name'); // Include interest names
+    })    .populate('author', 'username firstName lastName')
+    .populate('shares.user', 'username firstName lastName')
+    .populate('interests', 'name'); // Include interest names
 
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
@@ -371,14 +373,10 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
-    // Log the post image path for debugging
-    console.log('Post image path:', post.image);
-
     // Delete the image file if it exists
     if (post.image) {
       const imagePath = path.join(__dirname, '..', 'uploads', path.basename(post.image));
       // Log the constructed image path for debugging
-      console.log('Constructed image path:', imagePath);
 
       try {
         await unlinkFile(imagePath);
@@ -756,13 +754,17 @@ app.delete('/Unshare/:postId/:userId/:createdAt', authenticateToken, async (req,
       return res.status(404).send('Share not found');
     }
 
-    post.shares.splice(shareIndex, 1);
-    await post.save();
+    // שימוש בעדכון ישיר על מנת לעדכן את המסמך ולמנוע בעיות גרסה
+    await Post.updateOne(
+      { _id: postId, "shares.user": userId, "shares.createdAt": createdAt },
+      { $pull: { shares: { user: userId, createdAt: createdAt } } }
+    );
 
     // הסרת מזהה השיתוף מרשימת השיתופים של המשתמש
-    const user = await User.findById(currentUserId);
-    user.shares = user.shares.filter(userShareId => userShareId.toString() !== postId);
-    await user.save();
+    await User.updateOne(
+      { _id: currentUserId },
+      { $pull: { shares: postId } }
+    );
 
     res.status(200).send({ message: 'Unshared post successfully' });
   } catch (error) {
@@ -836,27 +838,61 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
 
 // נתיב לעדכון פרטי המשתמש
 app.put('/user-details', authenticateToken, async (req, res) => {
-  const { firstName, lastName, email, dateOfBirth, pet} = req.body;
-  
+  const { username, firstName, lastName, email, pet } = req.body;
+
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).send('User not found');
     }
 
+    // בדיקת האם שם המשתמש כבר קיים
+    if (username && username !== user.username) {
+      const existingUsername = await User.findOne({ username });
+      if (existingUsername) {
+        return res.status(400).send('Username already exists');
+      }
+    }
+
+    // בדיקת האם האימייל כבר קיים
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        return res.status(400).send('Email already exists');
+      }
+    }
+
     // עדכון הפרטים החדשים
     user.firstName = firstName || user.firstName;
     user.lastName = lastName || user.lastName;
     user.email = email || user.email;
-    user.dateOfBirth = dateOfBirth || user.dateOfBirth;
-    user.pet= pet|| user.pet;
+    user.pet = pet || user.pet;
+    user.username = username || user.username;
     await user.save();
+
     res.status(200).send('User details updated successfully');
   } catch (err) {
     console.error('Error updating user details:', err);
     res.status(500).send('Error updating user details');
   }
 });
+
+
+// נתיב לבדיקה אם שם המשתמש קיים
+app.post('/check-username', async (req, res) => {
+  const { username } = req.body;
+  const existingUsername = await User.findOne({ username });
+  res.send(!!existingUsername);
+});
+
+
+// נתיב לבדיקה אם האימייל קיים
+app.post('/check-email', async (req, res) => {
+  const { email } = req.body;
+  const existingEmail = await User.findOne({ email });
+  res.send(!!existingEmail);
+});
+
 
 
 //return the favorite post(personal-area)
@@ -925,9 +961,36 @@ app.get('/saved-content', authenticateToken, async (req, res) => {
 });
 
 app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
-  // Handle removal of uploaded content
-  res.send('Uploaded content removed');
+  try {
+    const postId = req.params.id;
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
+
+    // Delete the image file if it exists
+    if (post.image) {
+      const imagePath = path.join(__dirname, 'uploads', path.basename(post.image));
+      // Log the constructed image path for debugging
+      console.log('Constructed image path:', imagePath);
+
+      try {
+        await unlinkFile(imagePath);
+      } catch (error) {
+        console.error('Error deleting image file:', error);
+        // Continue to delete the post even if the image deletion fails
+      }
+    }
+
+    await Post.findByIdAndDelete(postId);
+    res.status(200).json({ message: 'Post and image deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    res.status(500).send('Server error');
+  }
 });
+
 
 
 
@@ -993,7 +1056,9 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.id).populate('followingInterests');
     const interestsIds = user.followingInterests.map(interest => interest._id);
     
-    const posts = await Post.find({ interests: { $in: interestsIds } }).populate('author', 'username firstName lastName').populate('interests', 'name category');
+    const posts = await Post.find({ interests: { $in: interestsIds } })
+                            .populate('author', 'username firstName lastName')
+                            .populate('interests', 'name category');
 
     const postsWithImages = posts.map(post => {
       let imageUrl = null;
