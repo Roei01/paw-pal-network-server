@@ -281,9 +281,7 @@ app.get('/feed', authenticateToken, async (req, res) => {
         { author: user._id },
         { 'shares.user': { $in: followingIds } }
       ]
-    })    .populate('author', 'username firstName lastName')
-    .populate('shares.user', 'username firstName lastName')
-    .populate('interests', 'name'); // Include interest names
+    })    .populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName').populate('interests', 'name'); // Include interest names
 
 
     // ווידוא שהתמונה נשלחת עם הנתיב הנכון
@@ -756,7 +754,7 @@ app.delete('/Unshare/:postId/:userId/:createdAt', authenticateToken, async (req,
 
     // שימוש בעדכון ישיר על מנת לעדכן את המסמך ולמנוע בעיות גרסה
     await Post.updateOne(
-      { _id: postId, "shares.user": userId, "shares.createdAt": createdAt },
+      { _id: postId, 'shares.user': userId, 'shares.createdAt': createdAt },
       { $pull: { shares: { user: userId, createdAt: createdAt } } }
     );
 
@@ -1056,9 +1054,7 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.id).populate('followingInterests');
     const interestsIds = user.followingInterests.map(interest => interest._id);
     
-    const posts = await Post.find({ interests: { $in: interestsIds } })
-                            .populate('author', 'username firstName lastName')
-                            .populate('interests', 'name category');
+    const posts = await Post.find({ interests: { $in: interestsIds } }).populate('author', 'username firstName lastName').populate('interests', 'name category');
 
     const postsWithImages = posts.map(post => {
       let imageUrl = null;
