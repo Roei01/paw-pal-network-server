@@ -237,7 +237,14 @@ app.post('/posts', authenticateToken, upload.single('image'), async (req, res) =
     });
 
     if (interestId) {
-      post.interests = [interestId]; // הוספת תחום עניין רק אם נבחר
+      post.interests = [interestId];
+
+      // Find the associated interest and update its connectedPosts array
+      const interest = await Interest.findById(interestId);
+      if (interest) {
+        interest.connectedPosts.push(post._id);
+        await interest.save();
+      }
     }
 
     await post.save();
@@ -282,10 +289,14 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
+    // Log the post image path for debugging
+    console.log('Post image path:', post.image);
+
     // Delete the image file if it exists
     if (post.image) {
       const imagePath = path.join(__dirname, '..', 'uploads', path.basename(post.image));
       // Log the constructed image path for debugging
+      console.log('Constructed image path:', imagePath);
 
       try {
         await unlinkFile(imagePath);
@@ -295,6 +306,14 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
       }
     }
 
+    // Remove the post from any connected interests
+    if (post.interests && post.interests.length > 0) {
+      await Interest.updateMany(
+        { _id: { $in: post.interests } },
+        { $pull: { connectedPosts: postId } }
+      );
+    }
+
     await Post.findByIdAndDelete(postId);
     res.status(200).json({ message: 'Post and image deleted successfully' });
   } catch (error) {
@@ -302,6 +321,7 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
 
 
 app.post('/posts/:id/unlike', authenticateToken, async (req, res) => {
