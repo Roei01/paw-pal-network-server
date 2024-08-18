@@ -351,12 +351,14 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
     }
 
     const userId = req.user.id;
+    let liked = false;
+    
     if (post.likes.includes(userId)) {
       post.likes.pull(userId);
-      post.liked = false;
+      liked = false;
     } else {
       post.likes.push(userId);
-      post.liked = true;
+      liked = true;
     }
 
     if (user.likes.includes(id)) {
@@ -367,7 +369,11 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
     await user.save();
     await post.save();
-    res.send(post);
+
+    res.send({
+      liked,
+      likesCount: post.likes.length // מחזיר את מספר הלייקים המעודכן
+    });
   } catch (err) {
     res.status(500).send('Error liking/unliking post');
   }
@@ -984,9 +990,7 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.id).populate('followingInterests');
     const interestsIds = user.followingInterests.map(interest => interest._id);
     
-    const posts = await Post.find({ interests: { $in: interestsIds } })
-                            .populate('author', 'username firstName lastName')
-                            .populate('interests', 'name category');
+    const posts = await Post.find({ interests: { $in: interestsIds } }).populate('author', 'username firstName lastName').populate('interests', 'name category');
 
     const postsWithImages = posts.map(post => {
       let imageUrl = null;
@@ -999,7 +1003,10 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
       }
       return {
         ...post.toObject(),
-        image: imageUrl
+        image: imageUrl,
+        liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
+        saved: user.savedPosts.includes(post._id) // האם המשתמש שמר את הפוסט
+
       };
     });
 
