@@ -296,7 +296,6 @@ app.delete('/posts/:id', authenticateToken, async (req, res) => {
     if (post.image) {
       const imagePath = path.join(__dirname, '..', 'uploads', path.basename(post.image));
       // Log the constructed image path for debugging
-      console.log('Constructed image path:', imagePath);
 
       try {
         await unlinkFile(imagePath);
