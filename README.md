@@ -1,130 +1,60 @@
-# PawPal Network Server
+Server README
+Project Name: Interest-Based Social Network API
+Overview
+This project is a backend server for an interest-based social network where users can follow interests, like posts, share posts, and interact with other users' content. The backend is built using Node.js, Express, and MongoDB.
 
-## Overview
+Features
+User authentication and authorization using JWT.
+Users can follow interests and see posts related to their followed interests.
+Users can like, unlike, share, and save posts.
+Posts are automatically updated with the number of likes and shares.
+Users can manage their interests, including following and unfollowing interests.
+The backend includes APIs for retrieving user information, interests, categories, and posts.
+Prerequisites
+Node.js
+MongoDB
+Git
+Installation and Setup
+Clone the repository:
 
-PawPal Network Server is an Express.js application designed to manage user registration, authentication, and profile management. It uses MongoDB for data storage and integrates JWT for secure authentication.
+bash
+Copy code
+git clone <server-repo-url>
+cd <server-repo-directory>
+Install dependencies:
 
-## Features
-
-- User Registration
-- User Authentication (Login)
-- Profile Management
-- JWT-based Authentication
-- ESLint for code quality
-- Unit tests using Mocha and Chai
-- CI/CD with GitHub Actions
-
-## Prerequisites
-
-- Node.js (v16.x or higher)
-- MongoDB
-
-## Getting Started
-
-### Installation
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/pawpal-network-server.git
-cd pawpal-network-server
-```
-
-2. Install dependencies:
-
-```bash
+bash
+Copy code
 npm install
-```
+Configure environment variables:
+Create a .env file in the root of the project and add the following environment variables:
 
-3. Set up MongoDB:
+bash
+Copy code
+MONGO_URI=<your-mongodb-connection-string>
+JWT_SECRET=<your-secret-key>
+Start the server:
 
-Make sure you have MongoDB installed and running on your local machine. By default, the server connects to `mongodb://localhost:27017/pawpal-network`.
+bash
+Copy code
+npm run start
+The server will be running at http://localhost:3000.
 
-### Running the Server
+API Endpoints
+User Authentication:
 
-Start the server in development mode with Nodemon:
+POST /login - Authenticate user and return JWT token.
+POST /register - Register a new user.
+Interests and Posts:
 
-```bash
-npm run dev
-```
-
-Start the server in production mode:
-
-```bash
-npm start
-```
-
-The server will run on `http://localhost:3000`.
-
-## API Endpoints
-
-### Register a new user
-
-- **URL:** `/register`
-- **Method:** `POST`
-- **Body:**
-  ```json
-  {
-    "username": "testuser",
-    "firstName": "Test",
-    "lastName": "User",
-    "email": "testuser@example.com",
-    "password": "password123",
-    "dateOfBirth": "1990-01-01"
-  }
-  ```
-
-### Login
-
-- **URL:** `/login`
-- **Method:** `POST`
-- **Body:**
-  ```json
-  {
-    "username": "testuser",
-    "password": "password123"
-  }
-  ```
-
-### Get User Profile
-
-- **URL:** `/profile`
-- **Method:** `GET`
-- **Headers:**
-  ```json
-  {
-    "Authorization": "Bearer <token>"
-  }
-  ```
-
-## Running Tests
-
-Unit tests are written using Mocha and Chai. To run the tests:
-
-```bash
-npm run test
-```
-
-## Linting
-
-ESLint is used to maintain code quality. To run the linter:
-
-```bash
-npm run lint
-```
-
-## Continuous Integration
-
-This project uses GitHub Actions for CI. The workflow is defined in `.github/workflows/npm-publish.yml`.
-
-### GitHub Actions Workflow
-
-- **Build, Test, Lint and Deploy** workflow runs on every push or pull request to the `main` branch.
-- It includes the following steps:
-  - Check out the code
-  - Set up Node.js
-  - Wait for MongoDB to be ready
-  - Install dependencies
-  - Run tests
-  - Run lint if tests pass
-  - Deploy the app using a custom deployment script
+GET /interests - Get all available interests.
+GET /user-interests - Get interests followed by the current user.
+POST /follow-interest - Follow an interest.
+POST /unfollow-interest - Unfollow an interest.
+GET /interests-posts - Get posts related to the user's followed interests.
+POST /posts/:id/like - Like/unlike a post.
+POST /posts/:id/share - Share a post.
+POST /posts/:id/save - Save/unsave a post.
+Troubleshooting
+Ensure MongoDB is running and accessible via the connection string provided in the .env file.
+Make sure to provide a valid JWT token in the Authorization header for protected routes.
