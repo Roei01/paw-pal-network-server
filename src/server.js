@@ -364,12 +364,14 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
     }
 
     const userId = req.user.id;
+    let liked = false;
+    
     if (post.likes.includes(userId)) {
       post.likes.pull(userId);
-      post.liked = false;
+      liked = false;
     } else {
       post.likes.push(userId);
-      post.liked = true;
+      liked = true;
     }
 
     if (user.likes.includes(id)) {
@@ -380,7 +382,11 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
     await user.save();
     await post.save();
-    res.send(post);
+
+    res.send({
+      liked,
+      likesCount: post.likes.length // מחזיר את מספר הלייקים המעודכן
+    });
   } catch (err) {
     res.status(500).send('Error liking/unliking post');
   }
