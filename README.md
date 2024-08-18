@@ -14,13 +14,11 @@ MongoDB
 Git
 Installation and Setup
 Clone the repository:
-
 bash
 Copy code
 git clone <server-repo-url>
 cd <server-repo-directory>
 Install dependencies:
-
 bash
 Copy code
 npm install
@@ -32,11 +30,12 @@ Copy code
 MONGO_URI=<your-mongodb-connection-string>
 JWT_SECRET=<your-secret-key>
 Start the server:
-
 bash
 Copy code
 npm run start
 The server will be running at http://localhost:3000.
+
+Note: If you are running the server on a free hosting service, the server may take approximately 40 seconds to start initially. Please be patient.
 
 API Endpoints
 User Authentication

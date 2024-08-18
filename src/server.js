@@ -49,7 +49,7 @@ const uri = process.env.MONGODB_URI || 'mongodb+srv://roeinagar011:tjiBqVnrYAc8n
 mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {
     console.log('Connected to MongoDB Atlas');
-    initializeInterests(); // הוספת הפונקציה כאן לאחר החיבור
+    initializeInterests();
   })
   .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
 
@@ -73,8 +73,8 @@ const UserSchema = new mongoose.Schema({
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // הוסף שדה זה
-  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], // עדכון הסכמה לשמור מזהי פוסטים
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+  shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }], 
   pet: { type: String },
   followingInterests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Interest' }]  // Array of interests the user follows
 });
@@ -99,7 +99,7 @@ const Schema = mongoose.Schema;
 const SavePostSchema = new Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] // הוסף שדה זה
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }] 
 });
 
 
@@ -129,7 +129,7 @@ function authenticateToken(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, 'secretKey'); // חשוב להחליף 'secretKey' במפתח סודי אמיתי
+    const decoded = jwt.verify(token, 'secretKey'); 
     req.user = decoded;
     next();
   } catch (err) {
@@ -209,13 +209,11 @@ app.get('/feed', authenticateToken, async (req, res) => {
     })    .populate('author', 'username firstName lastName').populate('shares.user', 'username firstName lastName').populate('interests', 'name'); // Include interest names
 
 
-    // ווידוא שהתמונה נשלחת עם הנתיב הנכון
+
     const postsWithImages = posts.map(post => {
       let imageUrl = null;
       if (post.image) {
-        // המרת סלשים הפוכים לסלשים רגילים
         let imagePath = post.image.replace(/\\/g, '/');
-        // הוספת סלש בתחילת הנתיב אם חסר
         if (!imagePath.startsWith('/')) {
           imagePath = '/' + imagePath;
         }
@@ -225,8 +223,8 @@ app.get('/feed', authenticateToken, async (req, res) => {
       return {
         ...post._doc,
         image: imageUrl,
-        liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
-        saved: user.savedPosts.includes(post._id) // האם המשתמש שמר את הפוסט
+        liked: post.likes.includes(req.user.id), 
+        saved: user.savedPosts.includes(post._id) 
       };
     });
 
@@ -385,7 +383,7 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
     res.send({
       liked,
-      likesCount: post.likes.length // מחזיר את מספר הלייקים המעודכן
+      likesCount: post.likes.length
     });
   } catch (err) {
     res.status(500).send('Error liking/unliking post');
@@ -394,7 +392,7 @@ app.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
 app.post('/posts/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { text } = req.body; // הנחת שיש תגובה ב-body של הבקשה
+  const { text } = req.body;
 
   try {
     const originalPost = await Post.findById(id);
@@ -402,14 +400,12 @@ app.post('/posts/:id/share', authenticateToken, async (req, res) => {
       return res.status(404).send('Post not found');
     }
 
-    // הוספת השיתוף החדש לרשימת השיתופים של הפוסט המקורי
     originalPost.shares.push({
       user: req.user.id,
-      text: text || '', // טקסט ברירת מחדל ריק אם אין תגובה
+      text: text || '',
       createdAt: new Date()
     });
 
-    // הוספת מזהה הפוסט ששיתף לרשימת השיתופים של המשתמש
     const user = await User.findById(req.user.id);
     user.shares.push(id);
 
@@ -504,7 +500,7 @@ app.get('/users/:username', authenticateToken, async (req, res) => {
   const { username } = req.params;
 
   try {
-    const user = await User.findOne({ username }).select('username firstName lastName email'); // בחירת שדות להצגה
+    const user = await User.findOne({ username }).select('username firstName lastName email');
     if (!user) {
       return res.status(404).send('User not found');
     }
@@ -543,7 +539,6 @@ app.post('/delete-account', authenticateToken, async (req, res) => {
       return res.status(404).send('User not found');
     }
 
-    // בדיקת הסיסמה
     const isMatch = await bcrypt.compare(req.body.password, user.password);
     if (!isMatch) {
       return res.status(400).send('Incorrect password');
@@ -629,15 +624,13 @@ app.post('/unfollow', authenticateToken, async (req, res) => {
 
 app.get('/current-user-following', authenticateToken, async (req, res) => {
   try {
-    const currentUser = req.user; // המשתמש המחובר
+    const currentUser = req.user;
 
-    // מציאת המשתמש המחובר במסד הנתונים
     const user = await User.findOne({ username: currentUser.username }).populate('following', 'username');
     if (!user) {
       return res.status(404).send('User not found');
     }
 
-    // החזרת רשימת המשתמשים שהמשתמש עוקב אחריהם
     const following = user.following.map(user => user.username);
     res.json({ following });
   } catch (error) {
@@ -677,8 +670,8 @@ app.get('/share', authenticateToken, async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
               },
-              liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
-              image: imageUrl // הוספת כתובת התמונה אם קיימת
+              liked: post.likes.includes(req.user.id),
+              image: imageUrl
             });
           }
         });
@@ -694,7 +687,6 @@ app.get('/share', authenticateToken, async (req, res) => {
   }
 });
 
-// פונקציה חדשה להסרת שיתוף
 app.delete('/Unshare/:postId/:userId/:createdAt', authenticateToken, async (req, res) => {
   try {
     const postId = req.params.postId;
@@ -707,19 +699,16 @@ app.delete('/Unshare/:postId/:userId/:createdAt', authenticateToken, async (req,
       return res.status(404).send('Post not found');
     }
 
-    // מציאת השיתוף הספציפי והסרתו
     const shareIndex = post.shares.findIndex(share => share.user.toString() === userId && new Date(share.createdAt).getTime() === createdAt.getTime());
     if (shareIndex === -1) {
       return res.status(404).send('Share not found');
     }
 
-    // שימוש בעדכון ישיר על מנת לעדכן את המסמך ולמנוע בעיות גרסה
     await Post.updateOne(
       { _id: postId, 'shares.user': userId, 'shares.createdAt': createdAt },
       { $pull: { shares: { user: userId, createdAt: createdAt } } }
     );
 
-    // הסרת מזהה השיתוף מרשימת השיתופים של המשתמש
     await User.updateOne(
       { _id: currentUserId },
       { $pull: { shares: postId } }
@@ -795,7 +784,6 @@ app.get('/public-uploaded-content/:username', async (req, res) => {
   }
 });
 
-// נתיב לעדכון פרטי המשתמש
 app.put('/user-details', authenticateToken, async (req, res) => {
   const { username, firstName, lastName, email, pet } = req.body;
 
@@ -805,7 +793,6 @@ app.put('/user-details', authenticateToken, async (req, res) => {
       return res.status(404).send('User not found');
     }
 
-    // בדיקת האם שם המשתמש כבר קיים
     if (username && username !== user.username) {
       const existingUsername = await User.findOne({ username });
       if (existingUsername) {
@@ -813,7 +800,6 @@ app.put('/user-details', authenticateToken, async (req, res) => {
       }
     }
 
-    // בדיקת האם האימייל כבר קיים
     if (email && email !== user.email) {
       const existingEmail = await User.findOne({ email });
       if (existingEmail) {
@@ -821,7 +807,6 @@ app.put('/user-details', authenticateToken, async (req, res) => {
       }
     }
 
-    // עדכון הפרטים החדשים
     user.firstName = firstName || user.firstName;
     user.lastName = lastName || user.lastName;
     user.email = email || user.email;
@@ -837,7 +822,6 @@ app.put('/user-details', authenticateToken, async (req, res) => {
 });
 
 
-// נתיב לבדיקה אם שם המשתמש קיים
 app.post('/check-username', async (req, res) => {
   const { username } = req.body;
   const existingUsername = await User.findOne({ username });
@@ -845,7 +829,6 @@ app.post('/check-username', async (req, res) => {
 });
 
 
-// נתיב לבדיקה אם האימייל קיים
 app.post('/check-email', async (req, res) => {
   const { email } = req.body;
   const existingEmail = await User.findOne({ email });
@@ -854,7 +837,6 @@ app.post('/check-email', async (req, res) => {
 
 
 
-//return the favorite post(personal-area)
 // Return favorite posts with proper image URLs
 app.get('/favorite-content', authenticateToken, async (req, res) => {
   try {
@@ -967,15 +949,12 @@ app.get('/interests', authenticateToken, async (req, res) => {
 
 app.get('/user-interests', authenticateToken, async (req, res) => {
   try {
-    // שליפת המשתמש לפי המזהה שמופיע בטוקן
     const user = await User.findById(req.user.id).populate('followingInterests');
     
-    // בדיקה שהמשתמש קיים
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // החזרת תחומי העניין שאחריהם המשתמש עוקב כתגובה
     res.json(user.followingInterests);
   } catch (err) {
     res.status(500).json({ message: 'Error fetching user interests' });
@@ -984,19 +963,18 @@ app.get('/user-interests', authenticateToken, async (req, res) => {
 
 app.get('/interest-categories', authenticateToken, async (req, res) => {
   try {
-    // נניח שיש לך מודל של תחום עניין עם שדות כמו שם וקטגוריה
     const categories = await Interest.aggregate([
       {
         $group: {
-          _id: '$category', // מקבץ לפי קטגוריה
-          interests: { $push: { _id: '$_id', name: '$name' } } // צובר את התחומי עניין בכל קטגוריה
+          _id: '$category', 
+          interests: { $push: { _id: '$_id', name: '$name' } } 
         }
       },
       {
         $project: {
-          _id: 0, // לא מציג את ה-id של הקבוצה
-          name: '$_id', // מציג את שם הקטגוריה
-          interests: 1 // מציג את התחומי עניין בקטגוריה
+          _id: 0, 
+          name: '$_id', 
+          interests: 1 
         }
       }
     ]);
@@ -1027,8 +1005,8 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
       return {
         ...post.toObject(),
         image: imageUrl,
-        liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
-        saved: user.savedPosts.includes(post._id) // האם המשתמש שמר את הפוסט
+        liked: post.likes.includes(req.user.id),
+        saved: user.savedPosts.includes(post._id)
 
       };
     });
@@ -1288,4 +1266,4 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 
-export default app;//
+export default app;
