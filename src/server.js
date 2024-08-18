@@ -677,6 +677,7 @@ app.get('/share', authenticateToken, async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
               },
+              liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
               image: imageUrl // הוספת כתובת התמונה אם קיימת
             });
           }
