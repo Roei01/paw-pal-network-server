@@ -1134,28 +1134,6 @@ app.post('/unfollow-interest', authenticateToken, async (req, res) => {
 
 
 
-// Function to populate interests if not already present
-async function initializeInterests() {
-  try {
-    const existingInterests = await Interest.find({}, 'name');
-    const existingInterestNames = existingInterests.map(interest => interest.name);
-
-    const newInterests = interestsData.filter(interest => !existingInterestNames.includes(interest.name));
-
-    if (newInterests.length > 0) {
-      await Interest.insertMany(newInterests, { ordered: false }); // ordered: false allows continuing on error
-      console.log('Interests have been successfully initialized.');
-    } else {
-      console.log('No new interests to add. All interests are already initialized.');
-    }
-  } catch (err) {
-    if (err.code === 11000) {
-      console.warn('Duplicate key error detected. Some interests may have already been added:', err.message);
-    } else {
-      console.error('Error initializing interests:', err);
-    }
-  }
-}
 
 const interestsData = [
   { category: 'Dogs', name: 'Dogs Training tips and techniques' },
@@ -1210,6 +1188,29 @@ const interestsData = [
   { category: 'Lizards', name: 'Lizards Handling and socialization tips' }
 ];
 
+
+// Function to populate interests if not already present
+async function initializeInterests() {
+  try {
+    const existingInterests = await Interest.find({}, 'name');
+    const existingInterestNames = existingInterests.map(interest => interest.name);
+
+    const newInterests = interestsData.filter(interest => !existingInterestNames.includes(interest.name));
+
+    if (newInterests.length > 0) {
+      await Interest.insertMany(newInterests, { ordered: false }); // ordered: false allows continuing on error
+      console.log('Interests have been successfully initialized.');
+    } else {
+      console.log('No new interests to add. All interests are already initialized.');
+    }
+  } catch (err) {
+    if (err.code === 11000) {
+      console.warn('Duplicate key error detected. Some interests may have already been added:', err.message);
+    } else {
+      console.error('Error initializing interests:', err);
+    }
+  }
+}
 
 app.delete('/uploaded-content/:id', authenticateToken, async (req, res) => {
   // Handle removal of uploaded content
