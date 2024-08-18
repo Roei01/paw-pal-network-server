@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
+app.use(express.json());
 
 
 // Define __dirname for ES modules
@@ -606,15 +607,26 @@ app.post('/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/delete-account', authenticateToken, async (req, res) => {
+
+app.post('/delete-account', authenticateToken, async (req, res) => {
   try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // בדיקת הסיסמה
+    const isMatch = await bcrypt.compare(req.body.password, user.password);
+    if (!isMatch) {
+      return res.status(400).send('Incorrect password');
+    }
+
     await User.findByIdAndDelete(req.user.id);
     res.send('Account deleted');
   } catch (err) {
     res.status(500).send('Error deleting account');
   }
 });
-
 
 app.post('/following', authenticateToken, async (req, res) => {
   try {
