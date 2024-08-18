@@ -1025,7 +1025,10 @@ app.get('/interests-posts', authenticateToken, async (req, res) => {
       }
       return {
         ...post.toObject(),
-        image: imageUrl
+        image: imageUrl,
+        liked: post.likes.includes(req.user.id), // האם המשתמש עשה לייק
+        saved: user.savedPosts.includes(post._id) // האם המשתמש שמר את הפוסט
+
       };
     });
 
